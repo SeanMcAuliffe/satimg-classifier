@@ -144,7 +144,7 @@ def test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals
 def test_against_known_deposits(ul, ur, ll, lr, minerals, expected_records):
     # For a convex 4-sided polygon, verify result against known deposits.
 
-    # Create dummy, square bounding box:
+    # Create bounding box.
     bounding_box = {}
     bounding_box["CORNER_UL_LAT_PRODUCT"] = ul[0]
     bounding_box["CORNER_UL_LON_PRODUCT"] = ul[1]
