@@ -1,3 +1,4 @@
+#!/opt/homebrew/Cellar/bash/5.2.15/bin/bash
 #!/bin/bash
 
 # This script requires that the Google Cloud SDK CLI tool is installed
@@ -46,17 +47,22 @@ if [ -z "$output_directory" ] ; then
   output_directory="./data/images"
 fi
 
+
 # Download landsat 4 images ending in _"$band".TIF
 files_download=0
-value="001"
+value="050"
 
-for i in {1..40}
+for i in {1..5..40}
 do
   #Format the string with the incremented substring
   echo "Downloading images for row gs://gcp-public-data-landsat/LT04/01/$value/"
   gspath="gs://gcp-public-data-landsat/LT04/01/$value/*/"
   gsdirlist=$(gsutil ls -d $gspath)
-  readarray -t array <<< "$gsdirlist"
+  for f in $gsdirlist
+   do
+    array+=($f)
+  done
+  echo $array
 
   # Filter out subdirectories ending in $folder$
   subdirectories=()
@@ -80,18 +86,24 @@ do
 
       for element in "${basearray[@]}"
         do
+        
           # Check if the element ends with the string "_B7.tif"
-          if [[ "$element" == *_"$IMGBAND".TIF ]]; then
+          if [[ $element == *_199[0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9]*B7.TIF ]]; then
+            
             # Check if the file has already been downloaded
             if [ -f "$output_directory/$(basename $element)" ]; then
               continue
+
             else
               gsutil -m cp "$element" "$output_directory"
               files_download=$((files_download + 1))
             fi
           fi
           # DOwnload the corresponding .txt file
-          if [[ "$element" == *MTL.txt ]]; then
+          # *_MTL\.txt$ 
+          if [[ $element == *_199[0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9]*MTL.txt ]]
+          then
+          echo "checking $element"
             # Check if the file has already been downloaded
             if [ -f "$output_directory/$(basename $element)" ]; then
               continue
