@@ -8,17 +8,30 @@ import time
 from sklearn.neighbors import KDTree
 
 ################################################################
+# Configuration.
+################################################################
+
+minerals_dir_path = os.path.join("data", "minerals")
+metadata_dir_path = os.path.join("data", "metadata")
+labels_dir_path = os.path.join("data", "labels")
+
+################################################################
 # Functions.
 ################################################################
 
 def getRecordIndex(r):
     return r[0]
 
-def load_minerals(minerals_filename):
+def get_kd_tree(minerals):
+    coords = [([record[1], record[2]]) for record in minerals]
+    tree = KDTree(np.array(coords))
+    return tree
+
+def load_minerals(filename):
     # Assumes csv files are in directory /data/minerals/
     # "minerals" is a list of lists, where each sublist is a row of the csv.
-    minerals_path = os.path.join("data", "minerals", minerals_filename)
-    minerals_rows = pd.read_csv(minerals_path, header=0, low_memory=False)
+    minerals_file_path = os.path.join(minerals_dir_path, filename)
+    minerals_rows = pd.read_csv(minerals_file_path, header=0, low_memory=False)
     minerals_rows = minerals_rows.replace({np.nan:None})
     minerals = minerals_rows.values.tolist()
 
@@ -27,10 +40,13 @@ def load_minerals(minerals_filename):
 
     return minerals
 
-def get_kd_tree(minerals):
-    coords = [([record[1], record[2]]) for record in minerals]
-    tree = KDTree(np.array(coords))
-    return tree
+def load_all_minerals_and_kd_trees():
+    minerals = load_minerals("minerals.csv")
+    minerals_cleaned = load_minerals("minerals_cleaned.csv")
+    minerals_kd_tree = get_kd_tree(minerals)
+    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+
+    return minerals, minerals_cleaned, minerals_kd_tree, minerals_cleaned_kd_tree
 
 def get_bounding_box(md_filepath):
     # From metadata file, obtain coords of bounding box of image.
@@ -47,10 +63,7 @@ def get_bounding_box(md_filepath):
                 break
     return bounding_box
 
-def get_deposit_records(bounding_box, minerals):
-    # Using image bounding box, find all mineral deposits present in the image.
-    # Returns list of lists each of form [index, record].
-
+def analyze_bounding_box(bounding_box):
     # Obtain vectors of bounding box edges.
     ul = [bounding_box["CORNER_UL_LAT_PRODUCT"], bounding_box["CORNER_UL_LON_PRODUCT"]]
     ur = [bounding_box["CORNER_UR_LAT_PRODUCT"], bounding_box["CORNER_UR_LON_PRODUCT"]]
@@ -62,54 +75,31 @@ def get_deposit_records(bounding_box, minerals):
     edges.append([lr, [(ll[0] - lr[0]), (ll[1] - lr[1])]])
     edges.append([ll, [(ul[0] - ll[0]), (ul[1] - ll[1])]])
 
-    # Find deposits within bounding box.
-    deposits = [] # Has form [index, record]
-    for j in range(0, len(minerals)):
-        deposit = minerals[j]
-        deposit_coords = [deposit[1], deposit[2]]
-        deposit_in_img = True
-        # Image is a convex polygon. Then if deposit is on right-hand side of each edge, deposit is in the image.
-        # TODO: implement spatial data structure to accelerate.
-        for edge in edges:
-            edge_start = edge[0]
-            edge_dir = edge[1]
-            edge_normal = [edge_dir[1], edge_dir[0] * -1.0]
-            to_deposit = [deposit_coords[0] - edge_start[0], deposit_coords[1] - edge_start[1]]
-            dot_prod = (edge_normal[0] * to_deposit[0]) + (edge_normal[1] * to_deposit[1])
-            if dot_prod > 0:
-                deposit_in_img = False
-                break
-        if deposit_in_img:
-            deposits.append([j, minerals[j]])
-    return deposits
+    return ul, ur, ll, lr, edges
 
-def get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree):
-    # Same as get_deposit_record(), but accelerated using kd tree.
-
-    # Obtain vectors of bounding box edges.
-    ul = [bounding_box["CORNER_UL_LAT_PRODUCT"], bounding_box["CORNER_UL_LON_PRODUCT"]]
-    ur = [bounding_box["CORNER_UR_LAT_PRODUCT"], bounding_box["CORNER_UR_LON_PRODUCT"]]
-    ll = [bounding_box["CORNER_LL_LAT_PRODUCT"], bounding_box["CORNER_LL_LON_PRODUCT"]]
-    lr = [bounding_box["CORNER_LR_LAT_PRODUCT"], bounding_box["CORNER_LR_LON_PRODUCT"]]
-    edges = [] # Has form [edge start point, edge direction]
-    edges.append([ul, [(ur[0] - ul[0]), (ur[1] - ul[1])]])
-    edges.append([ur, [(lr[0] - ur[0]), (lr[1] - ur[1])]])
-    edges.append([lr, [(ll[0] - lr[0]), (ll[1] - lr[1])]])
-    edges.append([ll, [(ul[0] - ll[0]), (ul[1] - ll[1])]])
-
-    # Use k-d tree to efficiently find deposits roughly in bounding box.
+def get_deposit_indices_approx(ul, ur, ll, lr, kd_tree):
+    # Use kd tree to obtain set of indices of deposits within a circle enclosing the bounding box.
     midpoint = [(ul[0] + lr[0]) / 2.0, (ul[1] + lr[1]) / 2.0]
     distance_ul_lr = math.sqrt(math.pow((ul[0] - lr[0]), 2) + math.pow((ul[1] - lr[1]), 2))
     distance_ur_ll = math.sqrt(math.pow((ur[0] - ll[0]), 2) + math.pow((ur[1] - ll[1]), 2))
     distance = max(distance_ul_lr, distance_ur_ll)
     target = np.array([midpoint])
     radius = distance* 0.5
-    deposits_approx = minerals_kd_tree.query_radius(target, r=radius)[0]
+    return kd_tree.query_radius(target, r=radius)[0]
 
-    # Of the deposits close to bounding box, find those within bounding box.
+def get_deposit_records(bounding_box, minerals, kd_tree=None):
+    # Using image bounding box, find all mineral deposits present in the image.
+    # Returns list of lists each of form [index, record].
+
+    # Obtain bounding box corners and edges.
+    ul, ur, ll, lr, edges = analyze_bounding_box(bounding_box)
+
+    # If k-d tree provided, use it to efficiently first find deposits roughly in bounding box.
+    candidates = get_deposit_indices_approx(ul, ur, ll, lr, kd_tree) if kd_tree else list(range(0, len(minerals)))
+
+    # Of the candidate deposits, find those within bounding box.
     deposit_records = [] # Has form [index, record]
-    for j in range(0, len(deposits_approx)):
-        index = deposits_approx[j]
+    for index in candidates:
         deposit_record = minerals[index]
         deposit_coords = [deposit_record[1], deposit_record[2]]
         # Image is a convex polygon. Then if deposit is on right-hand side of each edge, deposit is in the image.
@@ -127,15 +117,14 @@ def get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree):
             deposit_records.append([index, deposit_record])
     return deposit_records
 
-
 def convert_to_multiclass_label(deposit_records):
     # TODO: convert a list of deposit records into a multiclass label indicating which minerals are present.
     return
 
-def generate_label(md_filepath, minerals, minerals_kd_tree, label_type="binary"):
+def generate_label(md_filepath, minerals, kd_tree, label_type="binary"):
     # From metadata filename and minerals dataset, create label for image.
     bounding_box = get_bounding_box(md_filepath)
-    deposit_records = get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree)
+    deposit_records = get_deposit_records(bounding_box, minerals, kd_tree)
 
     label = []
     if label_type == "binary":
@@ -146,12 +135,62 @@ def generate_label(md_filepath, minerals, minerals_kd_tree, label_type="binary")
         
     return label
 
+def generate_and_store_all_labels():
+    # Obtain metadata for all images of all batches.
+    # Compute labels for all obtained imageds.
+    # Store labels per batch in csv files having rows of form (imagename, label).
+
+    # Load minerals dataset.
+    print("Loading minerals dataset. . .")
+    minerals, minerals_cleaned, minerals_kd_tree, minerals_cleaned_kd_tree = load_all_minerals_and_kd_trees()
+    print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
+    print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
+
+    # For each batch. . .
+    for batch_name in os.listdir(metadata_dir_path):
+        print("Generating labels for batch " + batch_name + ". . .")
+        # Get path to batch directory.
+        batch_path = os.path.join(metadata_dir_path, batch_name)
+
+        # Create paths to labels files.
+        labels_batch_path = os.path.join(labels_dir_path, batch_name)
+        labels_bm_file_path = os.path.join(labels_batch_path, "labels_binary_minerals.csv")
+        labels_bmc_file_path = os.path.join(labels_batch_path, "labels_binary_minerals_cleaned.csv")
+
+        # For each metadata file. . .
+        pairs_bm = []
+        pairs_bmc = []
+        for filename in os.listdir(batch_path):
+            # Generate binary labels.
+            metadata_file_path = os.path.join(batch_path, filename)
+            label_bm = generate_label(metadata_file_path, minerals, minerals_kd_tree, label_type="binary")
+            label_bmc = generate_label(metadata_file_path, minerals_cleaned, minerals_cleaned_kd_tree, label_type="binary")
+
+            # Generate pairs of form (imagename, label).
+            image_name = os.path.splitext(filename)[0]
+            pairs_bm.append([image_name, label_bm[0]])
+            pairs_bmc.append([image_name, label_bmc[0]])
+
+            # TODO:
+            # Generate multi-class labels.
+
+        # Store labels.
+        print("Storing labels. . .")
+        pairs_bm = pd.DataFrame(pairs_bm)
+        pairs_bmc = pd.DataFrame(pairs_bmc)
+        if not os.path.exists(labels_batch_path):
+            os.makedirs(labels_batch_path)
+        pairs_bm.to_csv(labels_bm_file_path, index=False, header=["imagename", "label"])
+        pairs_bmc.to_csv(labels_bmc_file_path, index=False, header=["imagename", "label"])
+    
+    print("Done.")
+    return
 
 ################################################################
 # Tests.
 ################################################################
 
-def test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals, minerals_kd_tree, print_countries=False):
+def test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals, kd_tree, print_countries=False):
     # For a square region with sides aligned with lat/lon axes, verify result against a naive method.
 
     # Create dummy, square bounding box:
@@ -167,7 +206,7 @@ def test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals
 
     # Use our algorithm, with and without kd_tree to find mineral deposits in bounding box.
     deposit_records_alg_1 = get_deposit_records(bounding_box, minerals)
-    deposit_records_alg_2 = get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree)
+    deposit_records_alg_2 = get_deposit_records(bounding_box, minerals, kd_tree)
 
     # Use naive method to find mineral deposits in bounding box.
     deposit_records_naive = []
@@ -195,7 +234,7 @@ def test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals
             location = str(country) + ", " + str(region)
             print(location)
 
-def test_against_known_deposits(ul, ur, ll, lr, minerals, minerals_kd_tree, expected_records):
+def test_against_known_deposits(ul, ur, ll, lr, minerals, kd_tree, expected_records):
     # For a convex 4-sided polygon, verify result against known deposits.
 
     # Create bounding box.
@@ -211,7 +250,7 @@ def test_against_known_deposits(ul, ur, ll, lr, minerals, minerals_kd_tree, expe
 
     # Use our algorithm, with and without kd tree, to find mineral deposits in bounding box.
     deposit_records_alg_1 = get_deposit_records(bounding_box, minerals)
-    deposit_records_alg_2 = get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree)
+    deposit_records_alg_2 = get_deposit_records(bounding_box, minerals, kd_tree)
 
     # Verify result equals expected.
     print("Verifying results. . .")
@@ -225,10 +264,7 @@ def test_1():
     print_countries = False
 
     print("Loading minerals dataset. . .")
-    minerals = load_minerals("minerals.csv")
-    minerals_cleaned = load_minerals("minerals_cleaned.csv")
-    minerals_kd_tree = get_kd_tree(minerals)
-    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+    minerals, minerals_cleaned, minerals_kd_tree, minerals_cleaned_kd_tree = load_all_minerals_and_kd_trees()
     print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
     print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
@@ -261,10 +297,9 @@ def test_2():
     print("TEST 2: test against known deposits:")
 
     print("Loading minerals dataset. . .")
-    minerals_filename = "minerals_cleaned.csv"
-    minerals = load_minerals(minerals_filename)
+    minerals = load_minerals("minerals_cleaned.csv")
     minerals_kd_tree = get_kd_tree(minerals)
-    print("Loaded " + str(len(minerals)) + " rows from " + minerals_filename + ".")
+    print("Loaded " + str(len(minerals)) + " rows from minerals_cleaned.csv.")
 
     print("Testing location 1. . .")
     expected = [
@@ -357,10 +392,7 @@ def test_3():
     print("TEST 3: kd tree performance test:")
 
     print("Loading minerals dataset. . .")
-    minerals = load_minerals("minerals.csv")
-    minerals_cleaned = load_minerals("minerals_cleaned.csv")
-    minerals_kd_tree = get_kd_tree(minerals)
-    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+    minerals, minerals_cleaned, minerals_kd_tree, minerals_cleaned_kd_tree = load_all_minerals_and_kd_trees()
     print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
     print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
@@ -391,7 +423,7 @@ def test_3():
     start_with_kd = time.time()
     results_with_kd = []
     for i in range(0, num_queries):
-        results_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals_cleaned, minerals_cleaned_kd_tree))
+        results_with_kd.append(get_deposit_records(bounding_box, minerals_cleaned, minerals_cleaned_kd_tree))
     elapsed_with_kd = time.time() - start_with_kd
 
     print("Without kd tree: generated " + str(len(results_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
@@ -406,7 +438,7 @@ def test_3():
     print("OK.")
 
     print("Testing on minerals without kd tree. . .")
-    num_queries = 100
+    num_queries = 50
     start_without_kd = time.time()
     results_without_kd = []
     for i in range(0, num_queries):
@@ -417,7 +449,7 @@ def test_3():
     start_with_kd = time.time()
     results_with_kd = []
     for i in range(0, num_queries):
-        results_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree))
+        results_with_kd.append(get_deposit_records(bounding_box, minerals, minerals_kd_tree))
     elapsed_with_kd = time.time() - start_with_kd
 
     print("Without kd tree: generated " + str(len(results_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
@@ -441,10 +473,7 @@ def test_4():
     num_labels = 1000
 
     print("Loading minerals dataset. . .")
-    minerals = load_minerals("minerals.csv")
-    minerals_cleaned = load_minerals("minerals_cleaned.csv")
-    minerals_kd_tree = get_kd_tree(minerals)
-    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+    minerals, minerals_cleaned, minerals_kd_tree, minerals_cleaned_kd_tree = load_all_minerals_and_kd_trees()
     print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
     print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
@@ -469,10 +498,17 @@ def test_4():
 
 
 ################################################################
+# Run program.
+################################################################
+
+generate_and_store_all_labels()
+
+
+################################################################
 # Run tests.
 ################################################################
 
-test_1()
-test_2()
-test_3()
+# test_1()
+# test_2()
+# test_3()
 # test_4()
