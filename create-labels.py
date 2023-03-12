@@ -32,10 +32,10 @@ def get_kd_tree(minerals):
     tree = KDTree(np.array(coords))
     return tree
 
-def get_bounding_box(md_filename):
+def get_bounding_box(md_filepath):
     # From metadata file, obtain coords of bounding box of image.
     bounding_box = {}
-    with open(md_filename) as md_file:
+    with open(md_filepath) as md_file:
         # Scan lines only until all corner coords are found.
         for line in md_file:
             key, val  = line.partition("=")[::2]
@@ -132,9 +132,9 @@ def convert_to_multiclass_label(deposit_records):
     # TODO: convert a list of deposit records into a multiclass label indicating which minerals are present.
     return
 
-def generate_label(md_filename, minerals, minerals_kd_tree, label_type="binary"):
+def generate_label(md_filepath, minerals, minerals_kd_tree, label_type="binary"):
     # From metadata filename and minerals dataset, create label for image.
-    bounding_box = get_bounding_box(md_filename)
+    bounding_box = get_bounding_box(md_filepath)
     deposit_records = get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree)
 
     label = []
@@ -225,16 +225,19 @@ def test_1():
     print_countries = False
 
     print("Loading minerals dataset. . .")
-    minerals_filename = "minerals_cleaned.csv"
-    minerals = load_minerals(minerals_filename)
+    minerals = load_minerals("minerals.csv")
+    minerals_cleaned = load_minerals("minerals_cleaned.csv")
     minerals_kd_tree = get_kd_tree(minerals)
-    print("Loaded " + str(len(minerals)) + " rows from " + minerals_filename + ".")
+    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+    print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
+    print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
     print("Testing dummy bounding box: Wyoming. . .")
     lat_north = 44.6854
     lat_south = 41.2457
     lon_west = -110.7871
     lon_east = -104.4551
+    test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals_cleaned, minerals_cleaned_kd_tree, print_countries)
     test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals, minerals_kd_tree, print_countries)
 
     print("Testing dummy bounding box: Western Australia. . .")
@@ -242,6 +245,7 @@ def test_1():
     lat_south = -31.1178
     lon_west = 115.2840
     lon_east = 127.4519
+    test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals_cleaned, minerals_cleaned_kd_tree, print_countries)
     test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals, minerals_kd_tree, print_countries)
 
     print("Testing dummy bounding box: Congo. . .")
@@ -249,6 +253,7 @@ def test_1():
     lat_south = 32.5188
     lon_west = 8.5227
     lon_east = 11.2603
+    test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals_cleaned, minerals_cleaned_kd_tree, print_countries)
     test_against_naive_method(lat_north, lat_south, lon_west, lon_east, minerals, minerals_kd_tree, print_countries)
 
 def test_2():
@@ -375,58 +380,92 @@ def test_3():
     bounding_box["CORNER_LR_LON_PRODUCT"] = lr[1]
 
     print("Testing on minerals_cleaned without kd tree. . .")
-    num_labels = 1000
+    num_queries = 1000
     start_without_kd = time.time()
-    labels_without_kd = []
-    for i in range(0, num_labels):
-        labels_without_kd.append(get_deposit_records(bounding_box, minerals_cleaned))
+    results_without_kd = []
+    for i in range(0, num_queries):
+        results_without_kd.append(get_deposit_records(bounding_box, minerals_cleaned))
     elapsed_without_kd = time.time() - start_without_kd
 
     print("Testing minerals_cleaned with kd tree. . .")
     start_with_kd = time.time()
-    labels_with_kd = []
-    for i in range(0, num_labels):
-        labels_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals_cleaned, minerals_cleaned_kd_tree))
+    results_with_kd = []
+    for i in range(0, num_queries):
+        results_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals_cleaned, minerals_cleaned_kd_tree))
     elapsed_with_kd = time.time() - start_with_kd
 
-    print("Without kd tree: generated " + str(len(labels_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
-    print("With kd tree: generated " + str(len(labels_with_kd)) + " labels in " + str(elapsed_with_kd) + " seconds.")
+    print("Without kd tree: generated " + str(len(results_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
+    print("With kd tree: generated " + str(len(results_with_kd)) + " labels in " + str(elapsed_with_kd) + " seconds.")
 
     print("Verifying results. . .")
-    assert(len(labels_with_kd) == len(labels_without_kd))
-    for i in range(len(labels_without_kd)):
-        labels_without_kd[i].sort(key=getRecordIndex)
-        labels_with_kd[i].sort(key=getRecordIndex)
-    assert(labels_without_kd == labels_with_kd)
+    assert(len(results_with_kd) == len(results_without_kd))
+    for i in range(len(results_without_kd)):
+        results_without_kd[i].sort(key=getRecordIndex)
+        results_with_kd[i].sort(key=getRecordIndex)
+    assert(results_without_kd == results_with_kd)
     print("OK.")
 
     print("Testing on minerals without kd tree. . .")
-    num_labels = 100
+    num_queries = 100
     start_without_kd = time.time()
-    labels_without_kd = []
-    for i in range(0, num_labels):
-        labels_without_kd.append(get_deposit_records(bounding_box, minerals))
+    results_without_kd = []
+    for i in range(0, num_queries):
+        results_without_kd.append(get_deposit_records(bounding_box, minerals))
     elapsed_without_kd = time.time() - start_without_kd
 
     print("Testing minerals with kd tree. . .")
     start_with_kd = time.time()
-    labels_with_kd = []
-    for i in range(0, num_labels):
-        labels_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree))
+    results_with_kd = []
+    for i in range(0, num_queries):
+        results_with_kd.append(get_deposit_records_using_kd_tree(bounding_box, minerals, minerals_kd_tree))
     elapsed_with_kd = time.time() - start_with_kd
 
-    print("Without kd tree: generated " + str(len(labels_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
-    print("With kd tree: generated " + str(len(labels_with_kd)) + " labels in " + str(elapsed_with_kd) + " seconds.")
+    print("Without kd tree: generated " + str(len(results_without_kd)) + " labels in " + str(elapsed_without_kd) + " seconds.")
+    print("With kd tree: generated " + str(len(results_with_kd)) + " labels in " + str(elapsed_with_kd) + " seconds.")
 
     print("Verifying results. . .")
-    assert(len(labels_with_kd) == len(labels_without_kd))
-    for i in range(len(labels_without_kd)):
-        labels_without_kd[i].sort(key=getRecordIndex)
-        labels_with_kd[i].sort(key=getRecordIndex)
-    assert(labels_without_kd == labels_with_kd)
+    assert(len(results_with_kd) == len(results_without_kd))
+    for i in range(len(results_without_kd)):
+        results_without_kd[i].sort(key=getRecordIndex)
+        results_with_kd[i].sort(key=getRecordIndex)
+    assert(results_without_kd == results_with_kd)
     print("OK.")
 
     return
+
+def test_4():
+    # Performance test: end-to-end:
+
+    print("################################")
+    print("TEST 4: end-to-end performance test:")
+    num_labels = 1000
+
+    print("Loading minerals dataset. . .")
+    minerals = load_minerals("minerals.csv")
+    minerals_cleaned = load_minerals("minerals_cleaned.csv")
+    minerals_kd_tree = get_kd_tree(minerals)
+    minerals_cleaned_kd_tree = get_kd_tree(minerals_cleaned)
+    print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
+    print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
+
+    print("Generating labels using minerals_cleaned.csv. . .")
+    metadata_filename = "LT04_L1GS_001026_19821202_20170220_01_T2_MTL.txt"
+    metadata_filepath = os.path.join("data", "metadata", metadata_filename)
+    start = time.time()
+    labels_minerals_cleaned = []
+    for i in range(0, num_labels):
+        labels_minerals_cleaned.append(generate_label(metadata_filepath, minerals_cleaned, minerals_cleaned_kd_tree, label_type="binary"))
+    elapsed_minerals_cleaned = time.time() - start
+
+    print("Generating labels using minerals.csv. . .")
+    start = time.time()
+    labels_minerals = []
+    for i in range(0, num_labels):
+        labels_minerals.append(generate_label(metadata_filepath, minerals, minerals_kd_tree, label_type="binary"))
+    elapsed_minerals = time.time() - start
+
+    print("Using minerals_cleaned.csv: generated " + str(len(labels_minerals_cleaned)) + " labels in " + str(elapsed_minerals_cleaned) + " seconds.")
+    print("Using minerals.csv: generated " + str(len(labels_minerals)) + " labels in " + str(elapsed_minerals) + " seconds.")
 
 
 ################################################################
@@ -436,3 +475,4 @@ def test_3():
 test_1()
 test_2()
 test_3()
+# test_4()
