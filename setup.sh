@@ -12,3 +12,4 @@ sudo apt-get update && sudo apt-get install google-cloud-cli
 
 # ImageMagick 
 sudo apt install imagemagick
+pip install -r requirements.txt
