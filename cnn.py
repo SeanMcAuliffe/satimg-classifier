@@ -182,5 +182,5 @@ plt.ylim([0.5, 1])
 plt.legend(loc='lower right')
 
 #Save the plot to disc
-plt.savefig('accuracy.png')
+plt.savefig(os.path.join("data", "accuracy.png"))
 

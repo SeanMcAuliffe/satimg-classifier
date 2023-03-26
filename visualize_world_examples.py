@@ -12,6 +12,7 @@ import pandas as pd
 # Initialize paths.
 metadata_dir_path = os.path.join("data", "metadata")
 labels_dir_path = os.path.join("data", "labels")
+vis_dir_path = os.path.join("vis")
 
 # Get labels CSV filename from command line.
 if len(sys.argv) > 2:
@@ -116,7 +117,7 @@ for batch_name in os.listdir(metadata_dir_path):
 
 # Plot the positive and negative points on a world map.
 def plot_on_world_map(pos, neg, title, xlabel, ylabel):
-    bg_image = mpimg.imread("world-map.png")
+    bg_image = mpimg.imread(os.path.join(vis_dir_path, "world-map.png"))
 
     fig, ax = plt.subplots()
     ax.set_title(title)
@@ -150,13 +151,13 @@ title1 += ", " + user_batch_name if user_batch_name is not None else ""
 filename1 = "world-map-examples-minerals"
 filename1 += "-" + user_batch_name if user_batch_name is not None else ""
 plot_on_world_map(lonlat_pos_bm, lonlat_neg_bm, title=title1, xlabel="longitude", ylabel="latitude")
-plt.savefig(filename1, dpi=1200)
+plt.savefig(os.path.join(vis_dir_path, filename1), dpi=1200)
 title2 = "pos and neg examples, minerals_cleaned.csv"
 title2 += ", " + user_batch_name if user_batch_name is not None else ""
 filename2 = "world-map-examples-minerals-cleaned"
 filename2 += "-" + user_batch_name if user_batch_name is not None else ""
 plot_on_world_map(lonlat_pos_bmc, lonlat_neg_bmc, title=title2, xlabel="longitude", ylabel="latitude")
-plt.savefig(filename2, dpi=1200)
+plt.savefig(os.path.join(vis_dir_path, filename2), dpi=1200)
 plt.show()
 plt.close()
 

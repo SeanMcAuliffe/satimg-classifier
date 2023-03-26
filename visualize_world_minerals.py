@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 
 minerals_dir_path = os.path.join("data", "minerals")
+vis_dir_path = os.path.join("vis")
 
 def load_minerals(filename):
     # Assumes csv files are in directory /data/minerals/
@@ -28,7 +29,7 @@ deposit_coords_mc = [(record[2], record[1]) for record in minerals_cleaned]
 
 # Plot the positive and negative points on a world map.
 def plot_on_world_map(deposits, title, xlabel, ylabel):
-    bg_image = mpimg.imread("world-map.png")
+    bg_image = mpimg.imread(os.path.join(vis_dir_path, "world-map.png"))
 
     fig, ax = plt.subplots()
     ax.set_title(title)
@@ -46,9 +47,9 @@ def plot_on_world_map(deposits, title, xlabel, ylabel):
     plt.ylim([-90.0, 90.0])
 
 plot_on_world_map(deposit_coords_m, title="Minerals", xlabel="longitude", ylabel="latitude")
-plt.savefig("world-map-minerals.png", dpi=1200)
+plt.savefig(os.path.join(vis_dir_path, "world-map-minerals.png"), dpi=1200)
 plot_on_world_map(deposit_coords_mc, title="Minerals (Cleaned)", xlabel="Longitude", ylabel="Latitude")
-plt.savefig("world-map-minerals-cleaned.png", dpi=1200)
+plt.savefig(os.path.join(vis_dir_path, "world-map-minerals-cleaned.png"), dpi=1200)
 plt.show()
 plt.close()
 
