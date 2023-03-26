@@ -147,13 +147,13 @@ lonlat_neg_bmc = [[point[1], point[0]] for point in latlon_neg_bmc]
 # Plot on cartesian axes.
 title1 = "pos and neg examples, minerals.csv"
 title1 += ", " + user_batch_name if user_batch_name is not None else ""
-filename1 = "world-map-minerals"
+filename1 = "world-map-examples-minerals"
 filename1 += "-" + user_batch_name if user_batch_name is not None else ""
 plot_on_world_map(lonlat_pos_bm, lonlat_neg_bm, title=title1, xlabel="longitude", ylabel="latitude")
 plt.savefig(filename1, dpi=1200)
 title2 = "pos and neg examples, minerals_cleaned.csv"
 title2 += ", " + user_batch_name if user_batch_name is not None else ""
-filename2 = "world-map-minerals-cleaned"
+filename2 = "world-map-examples-minerals-cleaned"
 filename2 += "-" + user_batch_name if user_batch_name is not None else ""
 plot_on_world_map(lonlat_pos_bmc, lonlat_neg_bmc, title=title2, xlabel="longitude", ylabel="latitude")
 plt.savefig(filename2, dpi=1200)
