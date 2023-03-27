@@ -28,3 +28,31 @@ mineral deposits contained in the land.
 Landsat dataset: https://console.cloud.google.com/marketplace/product/usgs-public-data/landast
 
 Supplementary mineral dataset: https://www.kaggle.com/datasets/thedevastator/mineral-ores-around-the-world
+
+# How to use the TensorFlow container:
+
+The Dockerfile in this repo defines a container you can use for GPU-accelerated training.
+The container is the official TensorFlow container, extended to include the libraries our scripts require.
+It may require an Nvidia GPU. Instructions to use on WSL2 with an Nvidia card as as follows:
+
+[Make sure your WSL2 is configured for nvidia GPU support.](https://docs.nvidia.com/cuda/wsl-user-guide/index.html) If you installed or updated your gpu driver recently it should already be visible within WSL. You can check using the command:
+```
+nvidia-smi
+```
+
+In the root of the repo, build the docker image: 
+```
+docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t satimg-tf-image .
+```
+
+Use the image to start the container: 
+```
+docker run --gpus all -u $(id -u):$(id -g) -it -v $(pwd):/satimg-classifier satimg-tf-image
+```
+
+This will open a shell on the container. You will see the satimg-classifier directory in the home directory. This is the actual repo directory, mounted to the container. You should be able to read and write to the container, and run all of our scripts.
+
+Verify that the container is accessing your GPU:
+```
+python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
