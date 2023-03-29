@@ -91,7 +91,7 @@ filename=""
 files_download=0
 value="180"
 
-for i in {180..230}
+for i in {011..011}
 do
   #Format the string with the incremented substring
   echo "Downloading images for row gs://gcp-public-data-landsat/LT04/01/$value/"
