@@ -5,17 +5,21 @@ import tensorflow as tf
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
-import subprocess
-import skimage.io as skio
-from skimage.transform import resize 
 import pandas as pd
 from PIL import Image
-import tifffile
+import random
 
-from utils.preprocessing import resize_512
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
+
 
 # Load images.  
-image_path = "../data/images/"
+image_path = "../data/images_norm/"
 
 print("Loading images...")
 
@@ -28,27 +32,30 @@ for label in labels:
      labels_dict[label[0]] = label[1]
 
 # Downscale images.
-print("Downscaling images...")
+print("Splitting images into sets...")
 
 X_train = []
 y_train = []
 X_test = []
 y_test = []
 
-for i, imagename in enumerate(os.listdir(image_path)):
 
+for i, imagename in enumerate(os.listdir(image_path)):
    im = np.array(Image.open(os.path.join(image_path, imagename)))
-   im = resize_512(im)
+   # Normalize all of the pixels values to be between 0 and 1.
+   # im = im / 255.0
 
    if im is not None:
-      if i < 21600:
+      if i < 3500:
          X_train.append(im)
-         y_train.append(labels_dict[f"{imagename[:-6]}MTL"])
-      else:
+         y_train.append(0)
+      elif i < 3500 + 8000:
          X_test.append(im)
          y_test.append(labels_dict[f"{imagename[:-6]}MTL"])
+      else:
+         break
 
-print("Finished downscaling images.")
+print("Finished splitting images.")
 
 X_train = np.array(X_train)
 y_train = np.array(y_train)
@@ -72,114 +79,9 @@ print("y_test shape: ", y_test.shape)
 
 print("Creating model. . .")
 
-################################################################
-# MODEL 1:
-
-# model = keras.Sequential()
-# model.add(keras.layers.Conv2D(filters=8,
-#                               kernel_size=(16, 16),
-#                               strides=(8, 8),
-#                               padding='same',
-#                               activation='relu',
-#                               input_shape=(512, 512, 1)))
-
-# model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
-#                                     strides=(2, 2),
-#                                     padding='same'))
-
-# model.add(keras.layers.Conv2D(filters=4,
-#                               kernel_size=(8, 8),
-#                               strides=(2, 2),
-#                               input_shape=(64, 64, 8)))
-
-# model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
-#                                     strides=(2, 2),
-#                                     padding='same'))
-
-# model.add(keras.layers.Flatten())
-
-# model.add(keras.layers.Dense(64, activation='sigmoid'))
-# model.add(keras.layers.Dense(1, activation='softmax'))
-# model.summary()
-
-# model = keras.Sequential()
-# model.add(keras.layers.Conv2D(filters=1,
-#                               kernel_size=(16, 16),
-#                               strides=(8, 8),
-#                               padding='same',
-#                               activation='relu',
-#                               input_shape=(512, 512, 1)))
-
-# model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
-#                                     strides=(2, 2),
-#                                     padding='same'))
-
-# model.add(keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
-# model.add(keras.layers.MaxPooling2D((2, 2)))
-# model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
-# model.add(keras.layers.MaxPooling2D((2, 2)))
-# model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
-# model.add(keras.layers.Flatten())
-# model.add(keras.layers.Dense(64, activation='relu'))
-# model.add(keras.layers.Dense(2))
-# model.summary()
-
-# # Compile the model
-# print("Compiling model. . .")
-# # Sparce cross entropy loss 
-# # https://www.tensorflow.org/api_docs/python/tf/keras/losses/SparseCategoricalCrossentropy
-# model.compile(optimizer='adam', loss="sparse_categorical_crossentropy", metrics=['accuracy'])
-
-# # Run CNN.
-# print("Fitting model. . .")
-# history = model.fit(X_train, y_train, verbose=1, epochs=15, batch_size=32, validation_data=(X_test, y_test))
-
-################################################################
-# MODEL 2:
-
-# model = keras.Sequential()
-# model.add(keras.layers.Conv2D(filters=8,
-#                               kernel_size=(16, 16),
-#                               strides=(4, 4),
-#                               padding='same',
-#                               activation='relu',
-#                               input_shape=(512, 512, 1)))
-
-# model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
-#                                     strides=(2, 2),
-#                                     padding='same'))
-
-# model.add(keras.layers.Conv2D(filters=4,
-#                               kernel_size=(8, 8),
-#                               strides=(2, 2),
-#                               activation='relu',
-#                               input_shape=(128, 128, 16)))
-
-# model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
-#                                     strides=(2, 2),
-#                                     padding='same'))
-
-# model.add(keras.layers.Flatten())
-
-# model.add(keras.layers.Dense(100, activation='relu'))
-# model.add(keras.layers.Dense(2, activation='softmax'))
-# model.summary()
-
-# # Compile the model
-# print("Compiling model. . .")
-# # Sparce cross entropy loss 
-# # https://www.tensorflow.org/api_docs/python/tf/keras/losses/SparseCategoricalCrossentropy
-# model.compile(optimizer='adam', loss="sparse_categorical_crossentropy", metrics=['accuracy'])
-
-# # Run CNN.
-# print("Fitting model. . .")
-# history = model.fit(X_train, y_train, verbose=1, epochs=15, batch_size=32, validation_data=(X_test, y_test))
-
-################################################################
-# MODEL 3:
 
 model = keras.Sequential()
-model.add(keras.layers.Conv2D(filters=8,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu',
@@ -189,7 +91,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=16,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -198,7 +100,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=32,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -207,7 +109,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=64,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -216,7 +118,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=64,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -225,7 +127,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=64,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -234,7 +136,7 @@ model.add(keras.layers.MaxPooling2D(pool_size=(2, 2),
                                     strides=(2, 2),
                                     padding='same'))
 
-model.add(keras.layers.Conv2D(filters=64,
+model.add(keras.layers.Conv2D(filters=4,
                               kernel_size=(3, 3),
                               padding='same',
                               activation='relu'))
@@ -262,7 +164,7 @@ model.compile(optimizer='adam', loss="binary_crossentropy", metrics=['accuracy']
 
 # Run CNN.
 print("Fitting model. . .")
-history = model.fit(X_train, y_train, verbose=1, epochs=10, batch_size=16, validation_data=(X_test, y_test))
+history = model.fit(X_train, y_train, verbose=1, epochs=5, batch_size=32, validation_data=(X_test, y_test))
 
 ################################################################
 # Evaluation:
@@ -272,7 +174,6 @@ print("Evaluating model. . .")
 test_loss, test_acc = model.evaluate(X_test, y_test, verbose=2)
 print("Test accuracy: ", test_acc)
 print("Test loss: ", test_loss)
-print(model.summary())
 
 plt.plot(history.history['accuracy'], label='accuracy')
 plt.plot(history.history['val_accuracy'], label = 'val_accuracy')
@@ -282,5 +183,5 @@ plt.ylim([0.5, 1])
 plt.legend(loc='lower right')
 
 #Save the plot to disc
-plt.savefig(os.path.join("vis", "accuracy.png"))
+plt.savefig(os.path.join("../vis", "accuracy.png"))
 

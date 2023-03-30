@@ -5,3 +5,4 @@ __pycache__
 /data/metadata/*
 /data/labels/*
 /data/labels/*
+/data/images_norm/*
