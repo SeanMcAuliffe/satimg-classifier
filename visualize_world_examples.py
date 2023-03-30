@@ -33,21 +33,21 @@ if len(sys.argv) == 2:
 labels_bm = []
 labels_bmc = []
 
-for batch_name in os.listdir(labels_dir_path):
-    if user_batch_name is not None and batch_name != user_batch_name:
-        continue
+# for batch_name in os.listdir(labels_dir_path):
+#     if user_batch_name is not None and batch_name != user_batch_name:
+#         continue
 
-    batch_path = os.path.join(metadata_dir_path, batch_name)
-    labels_batch_path = os.path.join(labels_dir_path, batch_name)
+batch_path = metadata_dir_path # os.path.join(metadata_dir_path)
+labels_batch_path = labels_dir_path # os.path.join(labels_dir_path)
 
-    labels_bm_file_path = os.path.join(labels_batch_path, "labels_binary_minerals.csv")
-    labels_bmc_file_path = os.path.join(labels_batch_path, "labels_binary_minerals_cleaned.csv")
-    
-    labels_bm_rows = pd.read_csv(labels_bm_file_path, header=0, low_memory=False)
-    labels_bmc_rows = pd.read_csv(labels_bmc_file_path, header=0, low_memory=False)
+labels_bm_file_path = os.path.join(labels_batch_path, "labels_binary_minerals.csv")
+labels_bmc_file_path = os.path.join(labels_batch_path, "labels_binary_minerals_cleaned.csv")
 
-    labels_bm += labels_bm_rows.values.tolist()
-    labels_bmc += labels_bmc_rows.values.tolist()
+labels_bm_rows = pd.read_csv(labels_bm_file_path, header=0, low_memory=False)
+labels_bmc_rows = pd.read_csv(labels_bmc_file_path, header=0, low_memory=False)
+
+labels_bm += labels_bm_rows.values.tolist()
+labels_bmc += labels_bmc_rows.values.tolist()
 
 labels_bm = dict(labels_bm)
 labels_bmc = dict(labels_bmc)
@@ -88,32 +88,32 @@ latlon_pos_bmc = []
 latlon_neg_bmc = []
 
 # For each example. . .
-for batch_name in os.listdir(metadata_dir_path):
-    if user_batch_name is not None and batch_name != user_batch_name:
-        continue
+# for batch_name in os.listdir(metadata_dir_path):
+#     if user_batch_name is not None and batch_name != user_batch_name:
+#         continue
 
-    batch_path = os.path.join(metadata_dir_path, batch_name)
-    for filename in os.listdir(batch_path):
-        metadata_file_path = os.path.join(batch_path, filename)
+batch_path = metadata_dir_path # os.path.join(metadata_dir_path, batch_name)
+for filename in os.listdir(batch_path):
+    metadata_file_path = os.path.join(batch_path, filename)
 
-        # Obtain centerpoint of image.
-        # Obtain label.
-        # Add to lists by label and axis, for plotting.
-        bb = get_bounding_box(metadata_file_path)
-        ul, ur, ll, lr, edges = analyze_bounding_box(bb)
-        midpoint = [(ul[0] + lr[0]) / 2.0, (ul[1] + lr[1]) / 2.0]
-        imagename = os.path.splitext(filename)[0]
-        label_bm = labels_bm[imagename]
-        label_bmc = labels_bmc[imagename]
+    # Obtain centerpoint of image.
+    # Obtain label.
+    # Add to lists by label and axis, for plotting.
+    bb = get_bounding_box(metadata_file_path)
+    ul, ur, ll, lr, edges = analyze_bounding_box(bb)
+    midpoint = [(ul[0] + lr[0]) / 2.0, (ul[1] + lr[1]) / 2.0]
+    imagename = os.path.splitext(filename)[0]
+    label_bm = labels_bm[imagename]
+    label_bmc = labels_bmc[imagename]
 
-        if label_bm == 1:
-            latlon_pos_bm.append(midpoint)
-        else:
-            latlon_neg_bm.append(midpoint)
-        if label_bmc == 1:
-            latlon_pos_bmc.append(midpoint)
-        else:
-            latlon_neg_bmc.append(midpoint)
+    if label_bm == 1:
+        latlon_pos_bm.append(midpoint)
+    else:
+        latlon_neg_bm.append(midpoint)
+    if label_bmc == 1:
+        latlon_pos_bmc.append(midpoint)
+    else:
+        latlon_neg_bmc.append(midpoint)
 
 # Plot the positive and negative points on a world map.
 def plot_on_world_map(pos, neg, title, xlabel, ylabel):

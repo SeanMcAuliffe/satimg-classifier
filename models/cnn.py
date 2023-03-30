@@ -8,18 +8,19 @@ import numpy as np
 import subprocess
 import skimage.io as skio
 from skimage.transform import resize 
-import os
 import pandas as pd
 from PIL import Image
+import tifffile
 
+from utils.preprocessing import resize_512
 
 # Load images.  
-image_path = "./data/images/B7_512x512/archive"
+image_path = "../data/images/"
 
 print("Loading images...")
 
 # Load labels.
-labels_path = "./data/labels/B7_512x512/labels_binary_minerals.csv"
+labels_path = "../data/labels/labels_binary_minerals.csv"
 labels_rows = pd.read_csv(labels_path, header=0, low_memory=False)
 labels = labels_rows.values.tolist()
 labels_dict = {}
@@ -38,22 +39,27 @@ y_test = []
 
 for i, imagename in enumerate(os.listdir(image_path)):
    #subprocess.run(["convert", os.path.join(image_path, imagename), "-resize!", "512x512", os.path.join(image_path, imagename)])
+   print(f"Name {imagename}")
    im = np.array(Image.open(os.path.join(image_path, imagename)))
-   im = im.flatten()
-   im_pixels = len(im)
-   difference = num_pixels - im_pixels
+   im = resize_512(im)
+   # im = im.flatten()
+   # im_pixels = len(im)
+   # difference = num_pixels - im_pixels
 
-   if difference > 0:
-      zeros = np.zeros((difference, 1), dtype=np.uint8)
-      im = np.append(im, zeros)
+   # if difference > 0:
+   #    zeros = np.zeros((difference, 1), dtype=np.uint8)
+   #    im = np.append(im, zeros)
 
-   im = im.reshape((512, 512))
+   # im = im.reshape((512, 512))
+   # tifffile.imwrite('output.tif', im)
+   quit()
+
 
    # m = skio.imread(os.path.join(image_path, imagename), plugin="pil")
    # image_resized = resize(im, (512, 512), anti_aliasing=True)
 
    if im is not None:
-      if i < 4000:
+      if i < 21600:
          X_train.append(im)
          y_train.append(labels_dict[f"{imagename[:-6]}MTL"])
       else:
