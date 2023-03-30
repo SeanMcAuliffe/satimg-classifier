@@ -146,42 +146,31 @@ def generate_and_store_all_labels():
     print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
     print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
-    # For each batch. . .
-    for batch_name in os.listdir(metadata_dir_path):
-        print("Generating labels for batch " + batch_name + ". . .")
-        # Get path to batch directory.
-        batch_path = os.path.join(metadata_dir_path, batch_name)
+    labels_bm_file_path = os.path.join(labels_dir_path, "labels_binary_minerals.csv")
+    labels_bmc_file_path = os.path.join(labels_dir_path, "labels_binary_minerals_cleaned.csv")
 
-        # Create paths to labels files.
-        labels_batch_path = os.path.join(labels_dir_path, batch_name)
-        labels_bm_file_path = os.path.join(labels_batch_path, "labels_binary_minerals.csv")
-        labels_bmc_file_path = os.path.join(labels_batch_path, "labels_binary_minerals_cleaned.csv")
+    # For each metadata file. . .
+    pairs_bm = []
+    pairs_bmc = []
+    for filename in os.listdir(metadata_dir_path):
+        # Generate binary labels.
+        metadata_file_path = os.path.join(metadata_dir_path, filename)
+        label_bm = generate_label(metadata_file_path, minerals, minerals_kd_tree, label_type="binary")
+        label_bmc = generate_label(metadata_file_path, minerals_cleaned, minerals_cleaned_kd_tree, label_type="binary")
 
-        # For each metadata file. . .
-        pairs_bm = []
-        pairs_bmc = []
-        for filename in os.listdir(batch_path):
-            # Generate binary labels.
-            metadata_file_path = os.path.join(batch_path, filename)
-            label_bm = generate_label(metadata_file_path, minerals, minerals_kd_tree, label_type="binary")
-            label_bmc = generate_label(metadata_file_path, minerals_cleaned, minerals_cleaned_kd_tree, label_type="binary")
+        # Generate pairs of form (imagename, label).
+        image_name = os.path.splitext(filename)[0]
+        pairs_bm.append([image_name, label_bm[0]])
+        pairs_bmc.append([image_name, label_bmc[0]])
 
-            # Generate pairs of form (imagename, label).
-            image_name = os.path.splitext(filename)[0]
-            pairs_bm.append([image_name, label_bm[0]])
-            pairs_bmc.append([image_name, label_bmc[0]])
-
-            # TODO:
-            # Generate multi-class labels.
-
-        # Store labels.
-        print("Storing labels. . .")
-        pairs_bm = pd.DataFrame(pairs_bm)
-        pairs_bmc = pd.DataFrame(pairs_bmc)
-        if not os.path.exists(labels_batch_path):
-            os.makedirs(labels_batch_path)
-        pairs_bm.to_csv(labels_bm_file_path, index=False, header=["imagename", "label"])
-        pairs_bmc.to_csv(labels_bmc_file_path, index=False, header=["imagename", "label"])
+    # Store labels.
+    print("Storing labels. . .")
+    pairs_bm = pd.DataFrame(pairs_bm)
+    pairs_bmc = pd.DataFrame(pairs_bmc)
+    if not os.path.exists(labels_dir_path):
+        os.makedirs(labels_dir_path)
+    pairs_bm.to_csv(labels_bm_file_path, index=False, header=["imagename", "label"])
+    pairs_bmc.to_csv(labels_bmc_file_path, index=False, header=["imagename", "label"])
     
     print("Done.")
     return
