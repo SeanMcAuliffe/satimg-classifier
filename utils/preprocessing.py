@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from scipy.ndimage import zoom
 
 def resize_512(image: np.ndarray):
     """ Provided an image of at most 512x512 pixels,
@@ -14,3 +15,8 @@ def resize_512(image: np.ndarray):
                     constant_values=0)
     return image
 
+
+def downsample_to(image: np.ndarray, size: int) -> np.ndarray:
+    """ Downscale the image to (size x size) pixels"""
+    zoom_amount = size / image.shape[0]
+    return zoom(image, zoom_amount)

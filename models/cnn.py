@@ -14,16 +14,25 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 from utils.load_data import load_datasets
 
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# if gpus:
+#     try:
+#         for gpu in gpus:
+#             tf.config.experimental.set_memory_growth(gpu, True)
+#     except RuntimeError as e:
+#         print(e)
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
     except RuntimeError as e:
         print(e)
 
 def main():
-   X_train, Y_train, x_test, y_test = load_datasets(5000)
+   X_train, Y_train, x_test, y_test = load_datasets(10000, downscale_dimension=128, normalize=True)
 
    print("X_train shape: ", X_train.shape)
    print("y_train shape: ", Y_train.shape)
@@ -42,7 +51,7 @@ def main():
                                  activation='relu',
                                  kernel_initializer=initializer,
                                  strides=(2, 2),
-                                 input_shape=(512, 512, 1)))
+                                 input_shape=(X_train.shape[1], X_train.shape[1], 1)))
 
    model.add(keras.layers.Conv2D(filters=16,
                                  kernel_size=(3, 3),
@@ -78,7 +87,7 @@ def main():
 
    # Run CNN.
    print("Fitting model. . .")
-   history = model.fit(X_train, Y_train, verbose=1, epochs=25, batch_size=32, validation_data=(x_test, y_test))
+   history = model.fit(X_train, Y_train, verbose=1, epochs=100, batch_size=32, validation_data=(x_test, y_test))
 
    ################################################################
    # Evaluation:

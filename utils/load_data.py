@@ -4,17 +4,26 @@ import numpy as np
 import random
 import os
 from copy import deepcopy
+import tifffile
 
-from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
+if __name__ == "__main__":
+    from utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
+    from preprocessing import downsample_to
+else:
+    from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
+    from utils.preprocessing import downsample_to
 
 
-def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
+def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
+                  remove_ocean: bool = True, normalize: bool = True,
+                  downscale_dimension: int = 512 ):
+    
     """ Load the datasets from the images and labels files. """
 
     IMG_DIRPATH = os.path.join("..", "data", "images_norm")
     META_DIRPATH = os.path.join("..", "data", "metadata")
     LABELS_FILEPATH= os.path.join("..", "data", "labels", "labels_binary_minerals.csv")
-    
+
     all_images = {}
     all_labels = {}
     all_coords = {}
@@ -48,7 +57,7 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
         if location_code not in location_buckets.keys():
             location_buckets[location_code] = []
         location_buckets[location_code].append(key)
-
+    
     # Ensure all buckets are mono-label
     for location_code in location_buckets.keys():
         examples = location_buckets[location_code]
@@ -63,6 +72,26 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
             else:
                 examples = [ex for ex in examples if ex[1] == 0]
             location_buckets[location_code] = [x[0] for x in examples]
+
+    keys_to_delete = []
+    if remove_ocean:
+        print("Removing images over ocean from dataset ...")
+        OCEANS_MASK_PATH = os.path.join("..", "data", "labels", "local_ocean_mask.csv")
+        dry_examples = {}
+        with open(OCEANS_MASK_PATH, 'r') as f:
+            for line in f.readlines():
+                name, label = line.rstrip().split(',')
+                if int(label) == 1:
+                    dry_examples[name] = True
+                else:
+                    dry_examples[name] = False
+        for key in location_buckets.keys():
+            over_land = dry_examples[location_buckets[key][0]]
+            if not over_land:
+                keys_to_delete.append(key)
+
+        for key in keys_to_delete:
+            del location_buckets[key]
 
     # Separate positive and negative buckets.
     pos_buckets = {}
@@ -114,6 +143,13 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
         n_path = os.path.join(IMG_DIRPATH, f'{n_example_name}_B7.TIF')
         p_im = np.array(Image.open(p_path))
         n_im = np.array(Image.open(n_path))
+        if downscale_dimension < 512:
+            p_im = downsample_to(p_im, downscale_dimension)
+            n_im = downsample_to(n_im, downscale_dimension)
+        if normalize:
+            p_im = np.divide(p_im, 255.0)
+            n_im = np.divide(n_im, 255.0)
+
         X_train.append(p_im)
         X_train.append(n_im)
         Y_train.append(all_labels[p_example_name])
@@ -138,6 +174,12 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
         n_path = os.path.join(IMG_DIRPATH, f'{n_example_name}_B7.TIF')
         p_im = np.array(Image.open(p_path))
         n_im = np.array(Image.open(n_path))
+        if downscale_dimension < 512:
+            p_im = downsample_to(p_im, downscale_dimension)
+            n_im = downsample_to(n_im, downscale_dimension)
+        if normalize:
+            p_im = np.divide(p_im, 255.0)
+            n_im = np.divide(n_im, 255.0)
         x_test.append(p_im)
         x_test.append(n_im)
         y_test.append(all_labels[p_example_name])
