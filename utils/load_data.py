@@ -11,10 +11,10 @@ from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_ma
 def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
     """ Load the datasets from the images and labels files. """
 
-    IMG_DIRPATH = "../data/images_norm/"
-    META_DIRPATH = "../data/metadata"
-    LABELS_FILEPATH= "../data/labels/labels_binary_minerals.csv"
-
+    IMG_DIRPATH = os.path.join("..", "data", "images_norm")
+    META_DIRPATH = os.path.join("..", "data", "metadata")
+    LABELS_FILEPATH= os.path.join("..", "data", "labels", "labels_binary_minerals.csv")
+    
     all_images = {}
     all_labels = {}
     all_coords = {}
