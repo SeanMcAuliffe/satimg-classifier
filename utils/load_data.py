@@ -5,7 +5,7 @@ import random
 import os
 from copy import deepcopy
 
-from utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
+from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
 
 
 def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
@@ -147,10 +147,15 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8):
         pos_test_coords.append(all_coords[p_example_name])
         neg_test_coords.append(all_coords[n_example_name])
 
-    print("Datasets created successfully.")
     if __name__ == "__main__":
         return pos_train_coords, neg_train_coords, pos_test_coords, neg_test_coords
     else:
+        print("Converting to nd.arrays")
+        X_train = np.array(X_train)
+        Y_train = np.array(Y_train)
+        x_test = np.array(x_test)
+        y_test = np.array(y_test)
+        print("Datasets created successfully.")
         return X_train, Y_train, x_test, y_test
 
 
