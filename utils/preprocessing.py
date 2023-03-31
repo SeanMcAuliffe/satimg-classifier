@@ -1,7 +1,5 @@
 import numpy as np
-import subprocess
 import os
-
 
 def resize_512(image: np.ndarray):
     """ Provided an image of at most 512x512 pixels,
