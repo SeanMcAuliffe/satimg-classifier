@@ -2,9 +2,11 @@ from PIL import Image
 import numpy as np
 import tifffile
 import os
+import sys
 
+parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_directory)
 from utils.preprocessing import resize_512
-
 
 image_path = "../data/images/"
 norm_path = "../data/images_norm/"

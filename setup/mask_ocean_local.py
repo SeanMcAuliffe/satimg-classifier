@@ -1,18 +1,27 @@
 import os
 import geopandas as gpd
 from shapely.geometry import Point
+import sys
 
+
+parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_directory)
 from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map_pos_neg
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
+
 #IMG_DIRPATH = os.path.join(".", "data", "images_norm")
-META_DIRPATH = os.path.join(".", "data", "metadata")
-OUT_PATH = os.path.join(".", "data", "labels", "local_ocean_mask.csv")
-NE_10M_PATH = os.path.join(".", "ne_110m_land", "ne_110m_land.shp")
-VIS_DIR_PATH = os.path.join(".", "vis")
+META_DIRPATH = os.path.join("..", "data", "metadata")
+OUT_PATH = os.path.join("..", "data", "labels", "ocean_mask.csv")
+NE_10M_PATH = os.path.join("..", "ne_110m_land", "ne_110m_land.shp")
+VIS_DIR_PATH = os.path.join("..", "vis")
+
 
 def mask_ocean():
+
+    if os.path.exists(OUT_PATH):
+        return
 
     world = gpd.read_file(NE_10M_PATH)
     coords = {}
@@ -88,37 +97,5 @@ def plot_results():
     
 
 if __name__ == "__main__":
+    mask_ocean()
     plot_results()
-
-
-
-        # land_polygons = gpd.read_file(NE_10M_PATH)
-
-    # results = []
-    # limit = 500
-    # for name in img_names:
-    #     c = coords[name]
-    #     if land_polygons.contains(Point(c)).any():
-    #         results.append([name, 1])
-    #     else:
-    #         results.append([name, 0])
-
-
-
-    
-
-################################################################
-# Remove points not over land.
-
-
-
-# coords_query_llp_bm = [{'name': 'temp', 'coords': ([p[0], p[1]])} for p in points]
-
-# coords_result_llp_bm = []
-# limit = 500
-# for i, im in enumerate(coords_query_llp_bm):
-#     point = Point(im['coords'])
-#     if land_polygons.contains(point).any():
-#         coords_result_llp_bm.append(im)
-#     if i > limit:
-#         break

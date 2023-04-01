@@ -40,6 +40,5 @@ def main(args):
             os.system(f"python3 {path}/create_coords.py")
 
 
-
 if __name__ == "__main__":
     main(sys.argv)

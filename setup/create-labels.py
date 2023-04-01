@@ -11,9 +11,9 @@ from sklearn.neighbors import KDTree
 # Configuration.
 ################################################################
 
-minerals_dir_path = os.path.join("data", "minerals")
-metadata_dir_path = os.path.join("data", "metadata")
-labels_dir_path = os.path.join("data", "labels")
+minerals_dir_path = os.path.join("..", "data", "minerals")
+metadata_dir_path = os.path.join("..", "data", "metadata")
+labels_dir_path = os.path.join("..", "data", "labels")
 
 ################################################################
 # Functions.

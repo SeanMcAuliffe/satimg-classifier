@@ -5,6 +5,7 @@ import random
 import os
 from copy import deepcopy
 import tifffile
+import gc
 
 if __name__ == "__main__":
     from utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
@@ -82,6 +83,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
                 examples = [ex for ex in examples if ex[1] == 0]
             location_buckets[location_code] = [x[0] for x in examples]
 
+    print(f"Total unique location buckets: {len(location_buckets)}")
+
     keys_to_delete = []
     if remove_ocean:
         print("Removing images over ocean from dataset ...")
@@ -102,6 +105,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         for key in keys_to_delete:
             del location_buckets[key]
 
+    print(f"Total after removing ocean buckets: {len(location_buckets)}")
+
     # Separate positive and negative buckets.
     pos_buckets = {}
     neg_buckets = {}
@@ -120,6 +125,9 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
     num_pos = len(pos_buckets.keys())
     num_neg = len(neg_buckets.keys())
 
+    print(f"Total Neg. Buckets: {num_neg}")
+    print(f"Total Neg. Buckets: {num_pos}")
+
     upper_pos_index = floor(num_pos * train_proportion)
     upper_neg_index = floor(num_neg * train_proportion)
 
@@ -137,10 +145,10 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
     x_test = []
     y_test = []
 
-    pos_train_coords = []
-    neg_train_coords = []
-    pos_test_coords = []
-    neg_test_coords = []
+    # pos_train_coords = []
+    # neg_train_coords = []
+    # pos_test_coords = []
+    # neg_test_coords = []
 
     i = 0
     print("Sampling training set ...")
@@ -169,8 +177,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         tr_names.append(n_example_name)
         i += 1
 
-        pos_train_coords.append(all_coords[p_example_name])
-        neg_train_coords.append(all_coords[n_example_name])
+        # pos_train_coords.append(all_coords[p_example_name])
+        # neg_train_coords.append(all_coords[n_example_name])
 
     i = 0
     print("Sampling test set ...")
@@ -201,19 +209,35 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         val_names.append(n_example_name)
         i += 1
 
-        pos_test_coords.append(all_coords[p_example_name])
-        neg_test_coords.append(all_coords[n_example_name])
+        # pos_test_coords.append(all_coords[p_example_name])
+        # neg_test_coords.append(all_coords[n_example_name])
 
-    if __name__ == "__main__":
-        return pos_train_coords, neg_train_coords, pos_test_coords, neg_test_coords
-    else:
-        print("Converting to nd.arrays")
-        X_train = np.array(X_train)
-        Y_train = np.array(Y_train)
-        x_test = np.array(x_test)
-        y_test = np.array(y_test)
-        print("Datasets created successfully.")
-        return X_train, Y_train, x_test, y_test, tr_names, val_names
+    del neg_keys
+    del pos_keys
+    del upper_pos_index
+    del upper_neg_index
+    del num_pos
+    del num_neg
+    del keys_to_delete
+    del pos_buckets
+    del neg_buckets
+    del all_images
+    del all_labels
+    del all_coords
+    del all_brightnesses
+    del keys
+    gc.collect()
+
+    # if __name__ == "__main__":
+    #     return pos_train_coords, neg_train_coords, pos_test_coords, neg_test_coords
+    # else:
+    print("Converting to nd.arrays")
+    X_train = np.array(X_train)
+    Y_train = np.array(Y_train)
+    x_test = np.array(x_test)
+    y_test = np.array(y_test)
+    print("Datasets created successfully.")
+    return X_train, Y_train, x_test, y_test, tr_names, val_names
 
 
 if __name__ == "__main__":

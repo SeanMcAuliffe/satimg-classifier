@@ -9,16 +9,33 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-import os 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import json
 import seaborn as sns
+from tensorflow import keras
+from keras import backend as K
+import gc
 
 VIS_DIR_PATH = os.path.join("..", "vis")
 RESULTS_DIR = os.path.join("..", "data", "results")
 COORD_FILEPATH= os.path.join("..", "data", "labels", "coord.csv")
-"test_ignore"
-def log_experiment(model, history, name, description, x_val, y_val, X_train, Y_train, tr_names, val_names):
 
+
+def save_model(model, name):
+    if not os.path.exists(RESULTS_DIR):
+        os.makedirs(RESULTS_DIR)
+
+    RESULTS_PATH = os.path.join(RESULTS_DIR, name)
+    if not os.path.exists(RESULTS_PATH):
+        os.makedirs(RESULTS_PATH)
+    model_path = os.path.join(RESULTS_PATH, f'{name}.h5')
+    model.save(model_path)
+    print(f'Model saved to {model_path}')
+
+
+def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, val_names):
+    
     if not os.path.exists(RESULTS_DIR):
         os.makedirs(RESULTS_DIR)
 
@@ -26,9 +43,7 @@ def log_experiment(model, history, name, description, x_val, y_val, X_train, Y_t
     if not os.path.exists(RESULTS_PATH):
         os.makedirs(RESULTS_PATH)
 
-    model_path = os.path.join(RESULTS_PATH, f'{name}.h5')
-    model.save(model_path)
-    print(f'Model saved to {model_path}')
+    model = keras.models.load_model(os.path.join(RESULTS_PATH, f'{name}.h5'))
 
     with open(os.path.join(RESULTS_PATH, "model_details.txt"), 'w') as f:
         f.write(description + '\n\n')
@@ -53,33 +68,24 @@ def log_experiment(model, history, name, description, x_val, y_val, X_train, Y_t
     # Get the model's predictions for the validation set
     y_pred = model.predict(x_val)
 
+    del model
+    gc.collect()
+    K.clear_session()
+
     # Convert the predictions to binary labels
     y_pred_classes = (y_pred > 0.5).astype(int).flatten()
     y_true_classes = y_val.flatten()
+
+    del y_pred
+    gc.collect()
 
     # Compare the predicted and true labels to find the correct and incorrect examples
     correct_indices = np.where(y_pred_classes == y_true_classes)[0]
     incorrect_indices = np.where(y_pred_classes != y_true_classes)[0]
 
-    # # Extract the correct and incorrect examples
-    # x_val_correct = x_val[correct_indices]
-    # x_val_incorrect = x_val[incorrect_indices]
-
-    # # Extract the true and predicted labels for the correct and incorrect examples
-    # y_true_correct = y_true_classes[correct_indices]
-    # y_true_incorrect = y_true_classes[incorrect_indices]
-    # y_pred_correct = y_pred_classes[correct_indices]
-    # y_pred_incorrect = y_pred_classes[incorrect_indices]
-
-    # # Separate the incorrect predictions into false positives and false negatives
-    # false_positives_indices = np.where((y_true_incorrect == 0) & (y_pred_incorrect == 1))[0]
-    # false_negatives_indices = np.where((y_true_incorrect == 1) & (y_pred_incorrect == 0))[0]
-
-    # x_val_false_positives = x_val_incorrect[false_positives_indices]
-    # x_val_false_negatives = x_val_incorrect[false_negatives_indices]
-
-    # y_true_false_positives = y_true_incorrect[false_positives_indices]
-    # y_true_false_negatives = y_true_incorrect[false_negatives_indices]
+    del y_pred_classes
+    del y_true_classes
+    gc.collect()
 
     coords = {}
     with open(COORD_FILEPATH, 'r') as f:
@@ -96,11 +102,25 @@ def log_experiment(model, history, name, description, x_val, y_val, X_train, Y_t
     tr_pos_names = [tr_names[i] for i in tr_pos_indices]
     tr_neg_names = [tr_names[i] for i in tr_neg_indices]
 
+    del tr_names
+    del tr_pos_indices
+    del tr_neg_indices
+    gc.collect()
+
     val_pos_names = [val_names[i] for i in val_pos_inidices]
     val_neg_names = [val_names[i] for i in val_neg_inidices]
 
+
+    del val_pos_inidices
+    del val_neg_inidices
+    gc.collect()
+
     val_pos_coords = [coords[name] for name in val_pos_names]
     val_neg_coords = [coords[name] for name in val_neg_names]
+
+    del val_neg_names
+    del val_pos_names
+    gc.collect()
     
     tr_pos_coords = [coords[name] for name in tr_pos_names]
     tr_neg_coords = [coords[name] for name in tr_neg_names]
@@ -111,14 +131,46 @@ def log_experiment(model, history, name, description, x_val, y_val, X_train, Y_t
     val_true_pos_coords = [coords[name] for name in val_correct_pos_names]
     val_true_neg_coords = [coords[name] for name in val_correct_neg_names]
 
+    del val_correct_pos_names
+    del val_correct_neg_names
+    gc.collect()
+
     val_incorrect_pos_names = [val_names[i] for i in incorrect_indices if y_val[i] == 1]
     val_incorrect_neg_names = [val_names[i] for i in incorrect_indices if y_val[i] == 0]
 
     val_false_pos_coords = [coords[name] for name in val_incorrect_pos_names]
     val_false_neg_coords = [coords[name] for name in val_incorrect_neg_names]
 
+    total = len(val_pos_names) + len(val_neg_names)
+
+    with open(os.path.join(RESULTS_DIR, f'{name}_record.txt')) as f:
+        f.write(f"Total: {total} -- False Positives {len(val_incorrect_pos_names)} -- False Negatives {len(val_incorrect_pos_names)}\n\n")
+        f.write("True Positives:\n")
+        for pos_name in val_correct_pos_names:
+            f.write(f'{pos_name}\n')
+        f.write("True Negatives")
+        for neg_name in val_correct_neg_names:
+            f.write(f'{neg_name}\n')
+        f.write("False Positives:\n")
+        for pos_name in val_incorrect_pos_names:
+            f.write(f'{pos_name}\n')
+        f.write("False Negatives:\n")
+        for neg_name in val_incorrect_neg_names:
+            f.write(f'{neg_name}\n')
+    
+    del val_names
+    del val_incorrect_neg_names
+    del val_incorrect_pos_names
+    del coords
+    del correct_indices
+    del incorrect_indices
+    gc.collect()
+
     # Plot and save accuracy and val accuracy.
     plot_accuracy(history, name + "_acc.png", RESULTS_PATH)
+
+    del history
+    gc.collect()
     
     # # Plot and save training set pos/neg.
     plot_on_world_map_pos_neg(tr_pos_coords,
@@ -207,7 +259,7 @@ def analyze_bounding_box(bounding_box):
     
 
 def plot_on_world_map_pos_neg(pos, neg, title, xlabel, ylabel, filename, path):
-    sns.set_style("whitegrid")
+    sns.set_style("white")
     bg_image = mpimg.imread(os.path.join(VIS_DIR_PATH, "world-map.png"))
 
     fig, ax = plt.subplots()
@@ -238,7 +290,7 @@ def plot_accuracy(history, filename, path):
     plt.plot(history.history['val_accuracy'], label = 'Validation Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
-    plt.ylim([0, 1])
+    plt.ylim([0.5, 1])
     plt.legend(loc='lower right')
 
     #Save the plot to disc
