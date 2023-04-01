@@ -9,24 +9,27 @@ import tifffile
 if __name__ == "__main__":
     from utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
     from preprocessing import downsample_to
+    from utils import ImageBucket
 else:
-    from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map
+    from utils.utils import get_bounding_box, analyze_bounding_box, plot_on_world_map_pos_neg
     from utils.preprocessing import downsample_to
+    from utils.utils import ImageBucket
 
 
 def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
                   remove_ocean: bool = True, normalize: bool = True,
-                  downscale_dimension: int = 512 ):
+                  downscale_dimension: int = 512):
     
     """ Load the datasets from the images and labels files. """
 
     IMG_DIRPATH = os.path.join("..", "data", "images_norm")
     META_DIRPATH = os.path.join("..", "data", "metadata")
     LABELS_FILEPATH= os.path.join("..", "data", "labels", "labels_binary_minerals.csv")
-
+    BRIGHTNESS_FILEPATH = os.path.join("..", "data", "labels", "brightness.csv")
     all_images = {}
     all_labels = {}
     all_coords = {}
+    all_brightnesses = {}
 
     print("Loading image data ...")
     for image_name in os.listdir(IMG_DIRPATH):
@@ -48,6 +51,12 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         imagename = f"{meta_name[:-8]}"
         all_coords[imagename] = midpoint
 
+    print("Loading brightness values ...")
+    with open(BRIGHTNESS_FILEPATH, 'r') as f:
+        for line in f.readlines():
+            name, label = line.rstrip().split(',')
+            all_brightnesses[name] = float(label)
+    
     # Split into buckets based on location
     location_buckets = {}
     keys = all_images.keys()
@@ -101,9 +110,9 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         examples = location_buckets[code]
         label = all_labels[examples[0]]
         if label == 1:
-            pos_buckets[code] = examples
+            pos_buckets[code] = ImageBucket(code, examples, all_brightnesses)
         else:
-            neg_buckets[code] = examples
+            neg_buckets[code] = ImageBucket(code, examples, all_brightnesses)
 
     del location_buckets
 
@@ -120,8 +129,11 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
     random.shuffle(pos_keys)
     random.shuffle(neg_keys)
 
+    tr_names = []
     X_train = []
     Y_train = []
+
+    val_names = []
     x_test = []
     y_test = []
 
@@ -137,8 +149,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         n_bucket_key = neg_keys[i % upper_neg_index]
         p_bucket = pos_buckets[p_bucket_key]
         n_bucket = neg_buckets[n_bucket_key]
-        p_example_name = random.choice(p_bucket)
-        n_example_name = random.choice(n_bucket)
+        p_example_name = p_bucket.get_next_image()
+        n_example_name = n_bucket.get_next_image()
         p_path = os.path.join(IMG_DIRPATH, f'{p_example_name}_B7.TIF')
         n_path = os.path.join(IMG_DIRPATH, f'{n_example_name}_B7.TIF')
         p_im = np.array(Image.open(p_path))
@@ -149,11 +161,12 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         if normalize:
             p_im = np.divide(p_im, 255.0)
             n_im = np.divide(n_im, 255.0)
-
         X_train.append(p_im)
         X_train.append(n_im)
         Y_train.append(all_labels[p_example_name])
         Y_train.append(all_labels[n_example_name])
+        tr_names.append(p_example_name)
+        tr_names.append(n_example_name)
         i += 1
 
         pos_train_coords.append(all_coords[p_example_name])
@@ -168,8 +181,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         n_bucket_key = neg_keys[upper_neg_index + (i % n_num)] 
         p_bucket = pos_buckets[p_bucket_key]
         n_bucket = neg_buckets[n_bucket_key]
-        p_example_name = random.choice(p_bucket)
-        n_example_name = random.choice(n_bucket)
+        p_example_name = p_bucket.get_next_image()
+        n_example_name = n_bucket.get_next_image()
         p_path = os.path.join(IMG_DIRPATH, f'{p_example_name}_B7.TIF')
         n_path = os.path.join(IMG_DIRPATH, f'{n_example_name}_B7.TIF')
         p_im = np.array(Image.open(p_path))
@@ -184,6 +197,8 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         x_test.append(n_im)
         y_test.append(all_labels[p_example_name])
         y_test.append(all_labels[n_example_name])
+        val_names.append(p_example_name)
+        val_names.append(n_example_name)
         i += 1
 
         pos_test_coords.append(all_coords[p_example_name])
@@ -198,7 +213,7 @@ def load_datasets(total_images: int = 10000, train_proportion: float = 0.8,
         x_test = np.array(x_test)
         y_test = np.array(y_test)
         print("Datasets created successfully.")
-        return X_train, Y_train, x_test, y_test
+        return X_train, Y_train, x_test, y_test, tr_names, val_names
 
 
 if __name__ == "__main__":
@@ -212,9 +227,9 @@ if __name__ == "__main__":
 
     title1 = "train: pos, neg"
     filename1 = "world-map-train.png"
-    plot_on_world_map(p_tr, n_tr, title=title1, xlabel="longitude", ylabel="latitude", filename=filename1)
+    plot_on_world_map_pos_neg(p_tr, n_tr, title=title1, xlabel="longitude", ylabel="latitude", filename=filename1)
 
     title2 = "test: pos, neg"
     filename2 = "world-map-test.png"
-    plot_on_world_map(p_te, n_te, title=title2, xlabel="longitude", ylabel="latitude", filename=filename2)
+    plot_on_world_map_pos_neg(p_te, n_te, title=title2, xlabel="longitude", ylabel="latitude", filename=filename2)
 

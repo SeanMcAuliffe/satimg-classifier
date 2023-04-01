@@ -13,6 +13,8 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 from utils.load_data import load_datasets
+from utils.test_acc_callback import StopAtTrainAcc, StopAtValAcc
+from utils.utils import log_experiment
 
 # gpus = tf.config.experimental.list_physical_devices('GPU')
 # if gpus:
@@ -32,82 +34,74 @@ if gpus:
         print(e)
 
 def main():
-   X_train, Y_train, x_test, y_test = load_datasets(10000, downscale_dimension=128, normalize=True)
 
-   print("X_train shape: ", X_train.shape)
-   print("y_train shape: ", Y_train.shape)
-   print("X_test shape: ", x_test.shape)
-   print("y_test shape: ", y_test.shape)
+    EXPERIMENT_NAME = "norm_512_1000_1"
+    DESCRIPTION = "Normalizing the images, 512x512, 1000 images, 1 conv layer"
 
-   print("Creating model ...")
+    X_train, Y_train, x_test, y_test, tr_names, val_names = load_datasets(1000, downscale_dimension=512, normalize=False)
 
-   model = keras.Sequential()
+    print("X_train shape: ", X_train.shape)
+    print("y_train shape: ", Y_train.shape)
+    print("X_test shape: ", x_test.shape)
+    print("y_test shape: ", y_test.shape)
 
-   initializer = HeUniform(seed=random.randint(1, 100))
+    print("Creating model ...")
 
-   model.add(keras.layers.Conv2D(filters=8,
-                                 kernel_size=(3, 3),
-                                 padding='same',
-                                 activation='relu',
-                                 kernel_initializer=initializer,
-                                 strides=(2, 2),
-                                 input_shape=(X_train.shape[1], X_train.shape[1], 1)))
+    model = keras.Sequential()
 
-   model.add(keras.layers.Conv2D(filters=16,
-                                 kernel_size=(3, 3),
-                                 padding='same',
-                                 activation='relu',
-                                 strides=(2, 2),
-                                 kernel_initializer=initializer))
+    initializer = HeUniform(seed=random.randint(1, 100))
 
-   model.add(keras.layers.Conv2D(filters=32,
-                                 kernel_size=(3, 3),
-                                 strides=(2, 2),
-                                 padding='same',
-                                 activation='relu',
-                                 kernel_initializer=initializer))
+    model.add(keras.layers.Conv2D(filters=8,
+                                    kernel_size=(3, 3),
+                                    padding='same',
+                                    activation='relu',
+                                    kernel_initializer=initializer,
+                                    strides=(2, 2),
+                                    input_shape=(X_train.shape[1], X_train.shape[1], 1)))
 
-   # Flatten and put a fully connected layer.
-   model.add(keras.layers.Flatten())
-   model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(filters=16,
+                                    kernel_size=(3, 3),
+                                    padding='same',
+                                    activation='relu',
+                                    strides=(2, 2),
+                                    kernel_initializer=initializer))
 
-   # Dense layers.
-   model.add(keras.layers.Dense(128, activation='relu'))
-   model.add(keras.layers.Dense(64, activation='relu'))
-   model.add(keras.layers.Dense(32, activation='relu'))
+    model.add(keras.layers.Conv2D(filters=32,
+                                    kernel_size=(3, 3),
+                                    strides=(2, 2),
+                                    padding='same',
+                                    activation='relu',
+                                    kernel_initializer=initializer))
 
-   # 1 output neuron for binary classification.
-   model.add(keras.layers.Dense(1, activation='sigmoid'))
-   model.summary()
+    # Flatten and put a fully connected layer.
+    model.add(keras.layers.Flatten())
+    model.add(keras.layers.BatchNormalization())
 
-   # Compile the model
-   print("Compiling model. . .")
-   opt = keras.optimizers.Adam(learning_rate=0.0000001)
-   model.compile(optimizer=opt, loss="binary_crossentropy", metrics=['accuracy'])
+    # Dense layers.
+    model.add(keras.layers.Dense(128, activation='relu'))
+    model.add(keras.layers.Dense(64, activation='relu'))
+    model.add(keras.layers.Dense(32, activation='relu'))
 
-   # Run CNN.
-   print("Fitting model. . .")
-   history = model.fit(X_train, Y_train, verbose=1, epochs=100, batch_size=32, validation_data=(x_test, y_test))
+    # 1 output neuron for binary classification.
+    model.add(keras.layers.Dense(1, activation='sigmoid'))
+    model.summary()
 
-   ################################################################
-   # Evaluation:
+    # Compile the model
+    print("Compiling model. . .")
+    opt = keras.optimizers.Adam(learning_rate=0.0000001)
+    model.compile(optimizer=opt, loss="binary_crossentropy", metrics=['accuracy'])
 
-   # Score the model
-   print("Evaluating model. . .")
-   test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
-   print("Test accuracy: ", test_acc)
-   print("Test loss: ", test_loss)
+    threshold = 0.95  # Set the desired accuracy threshold
+    patience = 10  # Set the number of epochs with no improvement before stopping
+    #callbacks = [StopAtThresholdCallback(threshold, patience)]
+    callbacks = [StopAtValAcc(0.65, 10)]
 
-   plt.plot(history.history['accuracy'], label='accuracy')
-   plt.plot(history.history['val_accuracy'], label = 'val_accuracy')
-   plt.xlabel('Epoch')
-   plt.ylabel('Accuracy')
-   plt.ylim([0.5, 1])
-   plt.legend(loc='lower right')
+    # Run CNN.
+    print("Fitting model. . .")
+    history = model.fit(X_train, Y_train, verbose=1, epochs=1000, batch_size=32, validation_data=(x_test, y_test), callbacks=callbacks)
 
-   #Save the plot to disc
-   plt.savefig(os.path.join("../vis", "accuracy.png"))
-
+    log_experiment(model, history, EXPERIMENT_NAME, DESCRIPTION, x_test, y_test, X_train, Y_train, tr_names, val_names)
+    
 
 if __name__ == "__main__":
     main()

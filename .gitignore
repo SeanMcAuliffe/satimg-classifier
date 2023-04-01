@@ -6,3 +6,4 @@ __pycache__
 /data/labels/*
 /data/labels/*
 /data/images_norm/*
+/data/results/*

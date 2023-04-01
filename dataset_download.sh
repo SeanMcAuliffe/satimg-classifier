@@ -123,6 +123,9 @@ do
         do
           # Check if the element ends with the string "_<BAND>.tif"
           if [[ "$element" == *_"$IMGBAND".TIF ]]; then
+            if [[ "$element" == *_L1GS_* ]]; then
+              continue
+            fi
             filename=$(basename $element)
             gsutil -m cp -n "$element" "$IMAGE_DIRECTORY"
             convert "$IMAGE_DIRECTORY/$filename" -sample "$SIZE" "$IMAGE_DIRECTORY/$filename" 2>/dev/null

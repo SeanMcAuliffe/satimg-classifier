@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from scipy.ndimage import zoom
+import tifffile
 
 def resize_512(image: np.ndarray):
     """ Provided an image of at most 512x512 pixels,
