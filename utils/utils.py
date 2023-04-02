@@ -1,10 +1,3 @@
-# Generic Utility / Helper Functions 
-# Author: Jiaqi Guo
-# Author: Zhehao Wang
-# Author: Yifan Wang
-# Author : Yifan Wang
-# Author: Yifan Wang
-
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -34,7 +27,7 @@ def save_model(model, name):
     print(f'Model saved to {model_path}')
 
 
-def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, val_names):
+def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, val_names, reg: bool = False):
     
     if not os.path.exists(RESULTS_DIR):
         os.makedirs(RESULTS_DIR)
@@ -71,6 +64,10 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
     del model
     gc.collect()
     K.clear_session()
+    
+    if reg:
+        plot_accuracy(history, name, name + "_acc.png", RESULTS_PATH)
+        return
 
     # Convert the predictions to binary labels
     y_pred_classes = (y_pred > 0.5).astype(int).flatten()
@@ -118,10 +115,6 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
     val_pos_coords = [coords[name] for name in val_pos_names]
     val_neg_coords = [coords[name] for name in val_neg_names]
 
-    del val_neg_names
-    del val_pos_names
-    gc.collect()
-    
     tr_pos_coords = [coords[name] for name in tr_pos_names]
     tr_neg_coords = [coords[name] for name in tr_neg_names]
 
@@ -131,10 +124,7 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
     val_true_pos_coords = [coords[name] for name in val_correct_pos_names]
     val_true_neg_coords = [coords[name] for name in val_correct_neg_names]
 
-    del val_correct_pos_names
-    del val_correct_neg_names
-    gc.collect()
-
+    
     val_incorrect_pos_names = [val_names[i] for i in incorrect_indices if y_val[i] == 1]
     val_incorrect_neg_names = [val_names[i] for i in incorrect_indices if y_val[i] == 0]
 
@@ -143,12 +133,16 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
 
     total = len(val_pos_names) + len(val_neg_names)
 
-    with open(os.path.join(RESULTS_DIR, f'{name}_record.txt')) as f:
-        f.write(f"Total: {total} -- False Positives {len(val_incorrect_pos_names)} -- False Negatives {len(val_incorrect_pos_names)}\n\n")
+    del val_neg_names
+    del val_pos_names
+    gc.collect()
+
+    with open(os.path.join(RESULTS_PATH, f'{name}_record.txt'), 'w') as f:
+        f.write(f"Total: {total} -- False Positives {len(val_incorrect_pos_names)} -- False Negatives {len(val_incorrect_neg_names)}\n\n")
         f.write("True Positives:\n")
         for pos_name in val_correct_pos_names:
             f.write(f'{pos_name}\n')
-        f.write("True Negatives")
+        f.write("True Negatives\n")
         for neg_name in val_correct_neg_names:
             f.write(f'{neg_name}\n')
         f.write("False Positives:\n")
@@ -157,6 +151,11 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
         f.write("False Negatives:\n")
         for neg_name in val_incorrect_neg_names:
             f.write(f'{neg_name}\n')
+
+    del val_correct_pos_names
+    del val_correct_neg_names
+    gc.collect()
+
     
     del val_names
     del val_incorrect_neg_names
@@ -167,7 +166,7 @@ def log_experiment(history, name, description, x_val, y_val, Y_train, tr_names, 
     gc.collect()
 
     # Plot and save accuracy and val accuracy.
-    plot_accuracy(history, name + "_acc.png", RESULTS_PATH)
+    plot_accuracy(history, name, name + "_acc.png", RESULTS_PATH)
 
     del history
     gc.collect()
@@ -284,14 +283,15 @@ def plot_on_world_map_pos_neg(pos, neg, title, xlabel, ylabel, filename, path):
 
     plt.savefig(os.path.join(path, filename), dpi=1200)
 
-def plot_accuracy(history, filename, path):
-    sns.set_style("darkgrid")
+def plot_accuracy(history, name, filename, path):
+    #sns.set_style("darkgrid")
     plt.plot(history.history['accuracy'], label='Training Accuracy')
     plt.plot(history.history['val_accuracy'], label = 'Validation Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.ylim([0.5, 1])
     plt.legend(loc='lower right')
-
+    plt.grid(True)
+    plt.title(f"{name}: Accuracy")
     #Save the plot to disc
     plt.savefig(os.path.join(path, filename))

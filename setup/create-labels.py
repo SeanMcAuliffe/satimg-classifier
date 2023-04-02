@@ -6,10 +6,14 @@ import os.path
 import math
 import time
 from sklearn.neighbors import KDTree
+from math import log
+from scipy.stats import skew
 
 ################################################################
 # Configuration.
 ################################################################
+
+label_type="regression"
 
 minerals_dir_path = os.path.join("..", "data", "minerals")
 metadata_dir_path = os.path.join("..", "data", "metadata")
@@ -129,8 +133,8 @@ def generate_label(md_filepath, minerals, kd_tree, label_type="binary"):
     label = []
     if label_type == "binary":
         label = [0] if len(deposit_records) == 0 else [1]
-    elif label_type == "multiclass":
-        label = deposit_records
+    elif label_type == "regression":
+        label = [len(deposit_records)]
         # label = convert_to_multiclass_label(deposit_records)
         
     return label
@@ -146,8 +150,12 @@ def generate_and_store_all_labels():
     print("Loaded " + str(len(minerals)) + " rows from minerals.csv.")
     print("Loaded " + str(len(minerals_cleaned)) + " rows from minerals_cleaned.csv.")
 
-    labels_bm_file_path = os.path.join(labels_dir_path, "labels_binary_minerals.csv")
-    labels_bmc_file_path = os.path.join(labels_dir_path, "labels_binary_minerals_cleaned.csv")
+    if label_type == "regression":
+        labels_bm_file_path = os.path.join(labels_dir_path, "labels_binary_minerals_reg.csv")
+        labels_bmc_file_path = os.path.join(labels_dir_path, "labels_binary_minerals_cleaned_reg.csv")
+    else:
+        labels_bm_file_path = os.path.join(labels_dir_path, "labels_binary_minerals.csv")
+        labels_bmc_file_path = os.path.join(labels_dir_path, "labels_binary_minerals_cleaned.csv")
 
     # For each metadata file. . .
     pairs_bm = []
@@ -155,13 +163,40 @@ def generate_and_store_all_labels():
     for filename in os.listdir(metadata_dir_path):
         # Generate binary labels.
         metadata_file_path = os.path.join(metadata_dir_path, filename)
-        label_bm = generate_label(metadata_file_path, minerals, minerals_kd_tree, label_type="binary")
-        label_bmc = generate_label(metadata_file_path, minerals_cleaned, minerals_cleaned_kd_tree, label_type="binary")
+        label_bm = generate_label(metadata_file_path, minerals, minerals_kd_tree, label_type=label_type)
+        label_bmc = generate_label(metadata_file_path, minerals_cleaned, minerals_cleaned_kd_tree, label_type=label_type)
 
         # Generate pairs of form (imagename, label).
         image_name = os.path.splitext(filename)[0]
         pairs_bm.append([image_name, label_bm[0]])
         pairs_bmc.append([image_name, label_bmc[0]])
+
+    if label_type == "regression":
+        # Normalize that labels to range [0.0, 1.0]:
+        labels_bm = [item[1] for item in pairs_bm]
+        labels_bmc = [item[1] for item in pairs_bmc]
+
+        imbalance = skew(labels_bm)
+        print("Data Skew before log-transformation: ", imbalance)
+
+        # Apply log transformation.
+        labels_bm = [log(label + 1.0) for label in labels_bm]
+        greatest = max(labels_bm)
+        labels_bm = [label / greatest for label in labels_bm]
+
+        imbalance = skew(labels_bm)
+        print("Data Skew after log-transformation: ", imbalance)
+
+        pairs_bm_temp = []
+        for name, val in zip(pairs_bm, labels_bm):
+            pairs_bm_temp.append([name[0], val])
+        
+        pairs_bmc_temp = []
+        for name, val in zip(pairs_bmc, labels_bmc):
+            pairs_bmc_temp.append([name[0], val])
+            
+        pairs_bm = pairs_bm_temp
+        pairs_bmc = pairs_bmc_temp
 
     # Store labels.
     print("Storing labels. . .")
