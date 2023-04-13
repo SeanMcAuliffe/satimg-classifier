@@ -128,7 +128,7 @@ the model will learn to solve the problem as formualted in our minds. Each
 formulation rests on a particular philosophy of what should be learned, and each
 has its own strengths and weaknesses.
 
-We formulated the problem in two ways: binary classification, and regression. Each
+We formulated the problem in two ways: binary classification (\ref{sec:bin}), and regression (\ref{sec:reg}). Each
 is described in the following subsections. Both approaches shared much of the
 same acquisition and preprosccesing pipeline as described below.
 
@@ -245,30 +245,26 @@ The log transfrom was used to reduce the skew of the regression values.
 label^{\prime}_i = \frac{\ln(label_i + 1)}{max(labels)}
 \end{equation}
 
-% Location buckets.
-
-\paragraph{Location Buckets:} Since Landsat images are taken at regular intervals,
+\textbf{Location Buckets:}
+Since Landsat images are taken at regular intervals,
 and our dataset contained several images at each location, it was necessary to
 ensure that no location appeared in both the training and testing sets simultaneously.
 To achieve this, the images were grouped by location, resulting in approximately
 6000 unique location buckets.
 
-% Cloud Cover
-
+\textbf{Cloud Cover:}
 Having grouped the images by location, the images in each bucket were sorted
 by average pixel brightness, which for band 7 images effectively sorts by degree
 of cloud cover. This permits the selection of training images having less cloud cover.
 
-% Ocean Masking
-
+\textbf{Ocean Masking:}
 Finally, images in location buckets over the ocean were removed, to ensure that our models
 did not learn to simply detect land. The Python library Geopandas was used to load
 a \href{https://www.naturalearthdata.com/}{\textcolor{blue}{\underline{geospatial dataset}}}
 containing the polygons of the boundaries of all land on Earth; this dataset was
 then queried to determine whether each image's centerpoint was over land.
 
-% Training and Testing Sets + proportions of labels
-
+\textbf{Training + Testing Sets:}
 To prevent our models from simply learning the underlying distribution
 of training labels, we ensured that the ratio of class labels in the training
 set is balanced. In binary classficiation this is trivial, we enforce that
@@ -283,11 +279,12 @@ one image from each location bucket was included. The training set was then
 randomly sampled from this set, and the remaining images were used as the testing set.
 All experiments used a 80/20 split between training and testing sets.
 
+\textbf{Padding:}
 Finally, since the Landsat images vary slightly in size and are not perfectly square,
 each image was padded to 512x512 pixels with black pixels, and all pixel brightnesses
 were normalized to the range 0-1. 
 
-\subsection{Binary Classification}
+\subsection{Binary Classification}\label{sec:bin}
 
 The binary classification problem setup was the first to be designed. It represents
 the simplest formulation of the problem, and our naive initial understanding.
@@ -321,7 +318,7 @@ and the model could never further learn from these examples.
 Nevertheless, this problem formulation does allow us to successfully determine
 whether our dataset contains information which is learnable by a CNN. 
 
-\subsection{Regression}
+\subsection{Regression}\label{sec:reg}
 
 The regression problem was designed to address the issues with the
 binary classification problem, and sought to investigate the feasibility of
@@ -342,37 +339,33 @@ such that each had a near-equivalent distribution of label values.
 Much of the previous work done to integrate satellite and aerial photography into
 the mining industry has been to better assess geographic factors relevant as
 obstacles to construction and extraction [4]. As well as to predict the extent of
-damage down to the natural landscape, for instance, to determine if much tree cover would have
-to be removed. Other work at automatically detecting minerals from orbit has been
-limited by the sensor capabilities of the satellites, indeed typically only those
-sensors with very high resolution and particular imaging wavelengths are useful
-for geological applications. 
+damage down to the natural landscape, for instance, to determine if much tree
+cover would have to be removed. Other work at automatically detecting minerals
+from orbit has been limited by the sensor capabilities of the satellites, indeed
+typically only those sensors with very high resolution and particular imaging
+wavelengths are useful for geological applications [5]. 
 
-% https://www.satimagingcorp.com/applications/energy/mining/
-% https://www.esri.com/about/newsroom/arcwatch/mineral-exploration-in-the-hyperspectral-zone/
+Other work has incorporated AI in the development of maps, and to search for
+particular features and reflectances which are already known to geolosits to
+correlate with  particular kinds of despits [6]. 
 
-% https://arxiv.org/pdf/2103.07678.pdf
-% Other work has incorporated AI in the development of maps, and to search for
-% particular features which geologists have decided apriori are correlated with 
-% particular kinds of despits.
-
-% Our work proceeds from the naively curious position of wondering if new patterns
-% useful in predicting the location of deposits, as of yet unknown to geologists,
-% could be learned by ML agents. Our work is limited by the resolution of the
-% data and our computing power. A more exhaustive search of this question would
-% train on multiple EM bands, and the full resolution available; and would likely
-% achieve more impressive results. As it stands, we have learned some modest
-% amount of information in the available dataset which does allow us to predict
-% the extent of mineral richness depicted in an image ~8\%  better than chance.
+Our work proceeds from the question; can new patterns useful in predicting the
+location of deposits, as of yet unknown to geologists, be learned by ML agents?
+Our work is limited by the resolution of the data and our computing power. A more
+exhaustive search of this question would train on multiple EM bands, and the full
+resolution available; and would likely achieve more impressive results.
 
 \section{Methods}
 
-% \begin{equation}
-%   W(C) = \sum_{j=1}^{k} \sum_{x \in C_j} \lVert x - \mu_j \rVert^2
-% \end{equation}
-
 % quick blurb introducing the section
 % Philosophy: explore architectures, then tune hyperparameters
+
+This section describes the experimental methods used to train the CNNs,
+and tune the CNN architecture and hyperparameters. To reduce the size of 
+the search space of possible architectures and hyperparameters, a heuristic
+was applied: first a set of candidate architectures were trained and evaluated;
+then only the architecture exhibiting the best performance was subjected to
+hyperparameter tuning.
 
 \subsection{Model Architecture}
 
@@ -383,6 +376,100 @@ for geological applications.
 % Describing the theory behind the keras implementation of CNNs 
 
 % Discuss our model architecture search space plan (small, medium, large)
+
+Convolutional Neural Networks are a type of deep neural network which are 
+well suited to image classifications tasks. They are composed of a series
+of convolutional layers designed to quickly extract ever-higher level patterns
+from the data. The convolutional layers are followed by a series of dense
+layers which perform the classification task. The final layer is a single ouput
+neuron which produces a value in the range 0-1. In the binary classification case
+this is taken to be the predicted probability that an image contains at least one
+mineral deposit. In the regression case this is taken as a prediction of the extent
+of mineral richness.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.75\linewidth]{cnn.png}
+  \caption{Generic CNN architecture}
+  \label{fig:cnn}
+\end{figure}
+
+Convolutional layers each have assosciated filter(s). Each filter is an $fxf$ grid
+of weights, and an assoscitad bias. A convolution operation involves "sliding"
+the filter over the layers input (for the first convolution layer the input is the
+example image itself). The amount by which the filter is slide at each step is determined
+by the stride. For each location of the filter against the input layer, an element-wise
+multiplication is performed and summed to produce a single output fed into the following layer.
+Equation \ref{eq:conv} describes the 2D convolutional operation in the case that the
+stride is 1 in each dimension. Where $Z$ is the convolutional output, $W$ is the
+matrix of filter weights, $X$ is the input layer, and $b$ is the bias.
+
+\begin{equation}\label{eq:conv}
+  Z_{i,j} = \sum_{m=1}^{f}\sum_{n=1}^{f} W_{m,n} \cdot X_{i+m-1,j+n-1} + b
+\end{equation}
+
+Several nonlinear activation functions are available to be applied to the output
+of each convolutional layer. The most common, and most successful in this project
+was the Rectified Linear Unit (ReLU) function. The ReLU function is defined below in
+equation \ref{eq:relu}.
+
+\begin{equation}\label{eq:relu}
+  ReLU(x) = \max(0, x)
+\end{equation}
+
+It is common to also include a pooling layer after each convolutional layer. Pooling
+is a technique which can reduce the resolution of the output from a previous layer,
+without introducing any further trainable parameters. This simplifies further training
+while preserving the most important features of the input. Commonly, max pooling layers
+are used, their behaviour is described in equation \ref{eq:maxpool}.
+
+\begin{equation}\label{eq:maxpool}
+  P_{i,j} = \max_{m=1}^{f}\max_{n=1}^{f} X_{i+m-1,j+n-1}
+\end{equation}
+
+To prevent overfitting, L1 and L2 regularization can be applied to the weights of
+each layer. These regularizations are penalties added to the models loss function
+to discourage large weights. This prevents the model from depending on any particular
+features too much. L1 regularization is less agressive, it is described in Equation
+\ref{eq:l1}. L2 regularization is more aggressive and is described in Equation \ref{eq:l2}.
+In both cases $\lambda$ is a hyperparameter which controls the strength of the regularization.
+
+\begin{equation}\label{eq:l1}
+L1(W) = \lambda\sum_{i=1}^n |w_i| 
+\end{equation}
+
+\begin{equation}\label{eq:l2}
+  L1(W) = \frac{\lambda}{2}\sum_{i=1}^n w_i^2
+\end{equation}
+
+We additionally found that batch normalization was useful in increasing model performance and
+possibly improve training times. Batch normalization is a technique which normalizes the
+output of each layer to have a mean of 0 and a standard deviation of 1 according to
+Equation \ref{eq:bnorm}. This has the effect of preventing any particular layer from
+dominating the training process. Where $\epsilon$ is a small constant to prevent
+division by zero.
+
+\begin{equation}\label{eq:bnorm}
+  \hat{X} = \frac{X - \mu}{\sqrt{\sigma^2 + \epsilon}}
+\end{equation}
+
+
+The candidate architectures each had a unique combination of two architectural
+characteristics: the complexity of the convolutional network, and the complexity
+of the dense network. "Big", "medium", and "small" configurations were defined
+for the convolutional and dense networks, and every possible combination was
+trained to convergence, for a total of 9 candidate architectures. Since the
+convolutional network extracts abstract features of the image, and the dense
+network performs classification using those features, varying these architectural characteristics
+independently allowed us to investigate the nature of the patterns relevant
+to the problem. For example, if a deep convolutional network provided no
+improvement over a shallow one, it could indicate that the general,
+high-level features of Landsat images carry little information relevant
+to the problem of mineral richness.
+
+The following table specifies the configurations tested:
+% table
+
 
 \subsection{Hyperparameter Tuning}
 
@@ -397,6 +484,25 @@ for geological applications.
 
 % Discuss that each model was compared against a baseline of randomized labels
 % to determine if the model was learning anything at all
+
+Prior to the architecture and hyperparameter tuning, performance baselines were
+obtained for the binary classification and regression models; this was an
+important preliminary for evaluating later model performance, since it allowed us to
+measure the improvements provided by each optimization.
+These baselines were obtained by training the medium-medium CNN configuration
+on examples having randomized labels for the training set, to ensure that
+the training set contained no learnable information relevant to the problem.
+The binary classification baseline was 50\% validation accuracy, and the
+regression baseline was a MAE of 0.127.
+
+%old
+The preliminary baseline, without any optimizations or hyperparameter tuning,
+and with the training labels randomized, returned results for binary classification of 50
+value accuracy, and the regression produced a mean absolute error (MAE) of 0.127,
+which is a measure of the difference between the predicted and actual values.
+A lower MAE indicates better accuracy in predicting the richness score of the mineral deposits.
+Obtaining a baseline was an important step in evaluating the performance of the models,
+as it helps determine if any additional efforts to optimize the model are improving its performance.
 
 \section{Results}
 
@@ -419,6 +525,17 @@ for geological applications.
 % Discuss that false positives are suspect
 
 \subsection{Limitations}
+
+These results are limited by the ambiguous quality of the mineral deposit dataset,
+which is incomplete. And although we manually verified the locations of a random
+sampling of the deposits, we did not exhaustively verify the dataset. Any errors
+in the minerals dataset would be expressed as inaccuracte labels in our dataset,
+and would reduce the reliability of our models. And since some of the mineral deposits
+are located at open mines visible from space, our model may be learning to simply
+detect mines, to some degree. Our results are also limited by the consumer hardware
+on which we trained our models; although we saw little performance benefit from
+larger models, much larger models and more powerful hardware may still obtain
+better performance even on our downsampled dataset.
 
 % The quality of the minerals dataset is suspect.
 % Since many of the mineral deposit locations are open mines,
@@ -444,6 +561,7 @@ for geological applications.
 % Impose a floor > 0 on the deposit count before an image is labelled as positive
 % Create a pipeline for rotating / resizing images to remove outer black box in
 %   order to save inupt neurons
+% Use automated search for architectures and hyperparameters
 
 \section{Conclusion}
 
@@ -488,6 +606,10 @@ for geological applications.
 [3] https://opendsa-server.cs.vt.edu/ODSA/Books/CS3/html/KDtree.html
 
 [4] https://www.satimagingcorp.com/applications/energy/mining/
+
+[5] https://www.esri.com/about/newsroom/arcwatch/mineral-exploration-in-the-hyperspectral-zone/
+
+[6] https://arxiv.org/pdf/2103.07678.pdf
 
 % Old:: 
 
