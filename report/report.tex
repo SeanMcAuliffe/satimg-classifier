@@ -18,6 +18,7 @@
 \usepackage{xcolor}
 \usepackage{wrapfig}
 \usepackage{subcaption}
+\usepackage{amsmath}
 
 \title{Detection of Mineral Deposits in NASA \emph{LandSat}
         Images Using Convolutional Neural Networks}
@@ -35,13 +36,6 @@
 }
 
 \graphicspath{{./figures/}}
-
-% \begin{figure}
-%   \centering
-%   \includegraphics[width=0.65\linewidth]{1.jpg}
-%   \caption{Sample figure caption.}
-%   \label{fig:1}
-% \end{figure}
 
 \begin{document}
 
@@ -242,7 +236,7 @@ log transform of the absolute count of deposits in the image, normalized to the 
 The log transfrom was used to reduce the skew of the regression values.
 
 \begin{equation}
-label^{\prime}_i = \frac{\ln(label_i + 1)}{max(labels)}
+y^{\prime}_i = \frac{\ln(y_i + 1)}{max(Y)}
 \end{equation}
 
 \textbf{Location Buckets:}
@@ -357,9 +351,6 @@ resolution available; and would likely achieve more impressive results.
 
 \section{Methods}
 
-% quick blurb introducing the section
-% Philosophy: explore architectures, then tune hyperparameters
-
 This section describes the experimental methods used to train the CNNs,
 and tune the CNN architecture and hyperparameters. To reduce the size of 
 the search space of possible architectures and hyperparameters, a heuristic
@@ -368,14 +359,6 @@ then only the architecture exhibiting the best performance was subjected to
 hyperparameter tuning.
 
 \subsection{Model Architecture}
-
-% Discuss in DETAIL the model architecture --> refer to keras documentations 
-% generate some equations and diagrams which explain what each layer does 
-% why it was included (what problem we hoped it would solve).
-
-% Describing the theory behind the keras implementation of CNNs 
-
-% Discuss our model architecture search space plan (small, medium, large)
 
 Convolutional Neural Networks are a type of deep neural network which are 
 well suited to image classifications tasks. They are composed of a series
@@ -413,19 +396,23 @@ of each convolutional layer. The most common, and most successful in this projec
 was the Rectified Linear Unit (ReLU) function. The ReLU function is defined below in
 equation \ref{eq:relu}.
 
-\begin{equation}\label{eq:relu}
-  ReLU(x) = \max(0, x)
-\end{equation}
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:relu}
+    ReLU(x) = \max(0, x)
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:maxpool}
+    P_{i,j} = \max_{m=1}^{f}\max_{n=1}^{f} X_{i+m-1,j+n-1}
+  \end{equation}
+\end{minipage}
 
 It is common to also include a pooling layer after each convolutional layer. Pooling
 is a technique which can reduce the resolution of the output from a previous layer,
 without introducing any further trainable parameters. This simplifies further training
 while preserving the most important features of the input. Commonly, max pooling layers
 are used, their behaviour is described in equation \ref{eq:maxpool}.
-
-\begin{equation}\label{eq:maxpool}
-  P_{i,j} = \max_{m=1}^{f}\max_{n=1}^{f} X_{i+m-1,j+n-1}
-\end{equation}
 
 To prevent overfitting, L1 and L2 regularization can be applied to the weights of
 each layer. These regularizations are penalties added to the models loss function
@@ -434,13 +421,17 @@ features too much. L1 regularization is less agressive, it is described in Equat
 \ref{eq:l1}. L2 regularization is more aggressive and is described in Equation \ref{eq:l2}.
 In both cases $\lambda$ is a hyperparameter which controls the strength of the regularization.
 
-\begin{equation}\label{eq:l1}
-L1(W) = \lambda\sum_{i=1}^n |w_i| 
-\end{equation}
-
-\begin{equation}\label{eq:l2}
-  L1(W) = \frac{\lambda}{2}\sum_{i=1}^n w_i^2
-\end{equation}
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:l1}
+    L1(W) = \lambda\sum_{i=1}^n |w_i|
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:l2}
+    L1(W) = \frac{\lambda}{2}\sum_{i=1}^n w_i^2
+  \end{equation}
+\end{minipage}
 
 We additionally found that batch normalization was useful in increasing model performance and
 possibly improve training times. Batch normalization is a technique which normalizes the
@@ -449,10 +440,74 @@ Equation \ref{eq:bnorm}. This has the effect of preventing any particular layer 
 dominating the training process. Where $\epsilon$ is a small constant to prevent
 division by zero.
 
-\begin{equation}\label{eq:bnorm}
-  \hat{X} = \frac{X - \mu}{\sqrt{\sigma^2 + \epsilon}}
-\end{equation}
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:bnorm}
+    \hat{X} = \frac{X - \mu}{\sqrt{\sigma^2 + \epsilon}}
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:dropout}
+    \hat{X}_{i,j} = \begin{cases}
+      0 & \text{with probability } p \\
+      X_{i,j} & \text{with probability } 1-p
+    \end{cases}
+  \end{equation}
+\end{minipage}
 
+Dropout layers were also added to the model architecture between the convolutional
+and dense network components. Dropout layers are intended to prevent overfitting
+by randomly selecting a fraction of a layers neurons to ignore during a training
+iteration. This has the effect of forcing the model to learn to perform the task
+without relying on any particular neurons. The fraction of neurons to ignore is
+controlled by the dropout rate hyperparameter; each neuron has an even chance to
+be dropped. This is described below in equation \ref{eq:dropout}.
+
+So then, a convolutional neural network is a deep neural network consisting of
+a series of convolutional layers, followed by a series of standard densely connected
+layers. Each convolutional layer may consist of many independent feature maps, each
+with its own filter. The output of each convolutional layer is the a matrix
+with resolution diminished by the stride and size of the filter according to
+equation \ref{eq:conv2}, in the 2D case. Where $d$ is the input dimension, $f$ is
+the filter size, $s$ is the stride, and $p$ is the padding (typically  $p = 1$
+in our experiments).
+
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:conv2}
+    d^\prime = \lfloor \frac{(d - f) + 2p}{s} \rfloor + 1
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:conv3}
+    Z = \sum_{i=1}^{n}\sum_{j=1}^{n}\sum_{k=1}^{K} W_{i,j,k} \cdot X_{i,j,k} + b
+  \end{equation}
+\end{minipage}
+
+The output of the convolutional layers is then flattened into a vector, and fed
+into the dense layers. The forward pass step of the convolutional layers can
+then be described by equation \ref{eq:conv3}. Where $K$ is the number of feature
+maps in the previous layer, shown here in a 2D $n \times n$ example.
+
+And the forward pass of the densely connected layers is familiar, shown in 
+equation \ref{eq:fc}.
+
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:fc}
+    Z = \sum_{i=1}^{n} W_{i} \cdot X_{i} + b
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:sigmoid}
+    O = \sigma(Z) = \frac{1}{1 + e^{-Z}}
+  \end{equation}
+\end{minipage}
+
+The result of the final dense layer is transformed by the sigmoid activation function,
+in order that all network outputs be in the range $[0,1]$. The sigmoid function
+was found to be the most effective activation function for our task and is described
+in equation \ref{eq:sigmoid}.
 
 The candidate architectures each had a unique combination of two architectural
 characteristics: the complexity of the convolutional network, and the complexity
@@ -460,16 +515,12 @@ of the dense network. "Big", "medium", and "small" configurations were defined
 for the convolutional and dense networks, and every possible combination was
 trained to convergence, for a total of 9 candidate architectures. Since the
 convolutional network extracts abstract features of the image, and the dense
-network performs classification using those features, varying these architectural characteristics
-independently allowed us to investigate the nature of the patterns relevant
-to the problem. For example, if a deep convolutional network provided no
-improvement over a shallow one, it could indicate that the general,
-high-level features of Landsat images carry little information relevant
-to the problem of mineral richness.
-
-The following table specifies the configurations tested:
-% table
-
+network performs classification using those features, varying these architectural
+characteristics independently allowed us to investigate the nature of the patterns
+relevant to the problem. For example, if a deep convolutional network provided no
+improvement over a shallow one, it could indicate that the general, high-level
+features of Landsat images carry little information relevant to the problem of
+mineral richness.
 
 \subsection{Hyperparameter Tuning}
 
@@ -479,30 +530,37 @@ The following table specifies the configurations tested:
 
 \subsection{Model Evaluation}
 
-% Discuss the metrics and loss functions used to train + evaluation the model
-% show the MATH
+The binary classification problem trained the model using the binary cross entropy
+(or log loss) loss function, shown in equation \ref{eq:bcloss}. The regression problem
+trained the model using the mean absolute error (MAE) loss function, shown in
+equation \ref{eq:mae}.Where $y$ is the true label, and $o$ is the model output.
+Both models were trained using the Adam optimizer, which is a variant of stochastic
+gradient descent. The Adam optimizer is a popular choice for training deep neural
+networks [7]. In practice, each loss function may be modified by the
+regularizations described in the previous section.
 
-% Discuss that each model was compared against a baseline of randomized labels
-% to determine if the model was learning anything at all
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:bcloss}
+    L_BCE = -y \cdot \log(o) - (1-y) \cdot \log(1-o)
+  \end{equation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+  \begin{equation}\label{eq:mae}
+    L_MAE = \frac{1}{n} \sum_{i=1}^{n} (y_i - o_i)^2
+  \end{equation}
+\end{minipage}
 
 Prior to the architecture and hyperparameter tuning, performance baselines were
 obtained for the binary classification and regression models; this was an
 important preliminary for evaluating later model performance, since it allowed us to
 measure the improvements provided by each optimization.
+
 These baselines were obtained by training the medium-medium CNN configuration
 on examples having randomized labels for the training set, to ensure that
 the training set contained no learnable information relevant to the problem.
 The binary classification baseline was 50\% validation accuracy, and the
 regression baseline was a MAE of 0.127.
-
-%old
-The preliminary baseline, without any optimizations or hyperparameter tuning,
-and with the training labels randomized, returned results for binary classification of 50
-value accuracy, and the regression produced a mean absolute error (MAE) of 0.127,
-which is a measure of the difference between the predicted and actual values.
-A lower MAE indicates better accuracy in predicting the richness score of the mineral deposits.
-Obtaining a baseline was an important step in evaluating the performance of the models,
-as it helps determine if any additional efforts to optimize the model are improving its performance.
 
 \section{Results}
 
@@ -513,16 +571,52 @@ as it helps determine if any additional efforts to optimize the model are improv
 % Discuss the results of the architecture and hyperparameter searches 
 % include graphs of model accuracy
 
+%old
+Various model architectures and hyperparameters were tested to identify the best accuracy and
+mean absolute error (MAE) for binary classification and regression tasks. For binary classification,
+initial accuracy was 65\%, but architecture optimization and hyperparameter tuning improved it by around 10\%.
+Shallow and wide networks performed better for binary classification, while deep and narrow network
+were more effective for regression. Interestingly, deeper models had longer training times without
+a significant improvement in validation accuracy, and regression training showed a double-descent pattern.
+The highest validation accuracy observed in the experiments was approximately 73\%, with further
+hyperparameter changes not leading to significant improvements. This may indicate that the model was
+already learning almost all available information and that the use of higher-resolution images
+could expose more information to the model and improve performance.
+
+The binary classifier models had incorrect classifications, resulting in a lower accuracy score of 73\%.
+This is possibly explained by the fact that the models were able to determine new locations with minerals
+for extraction that were not in the deposit mineral dataset. However, upon further inspection of the
+false positive locations, it was found that these locations were bodies of water that were dried up,
+such as lakes and rivers, that were classified as having minerals. This suggests the areas of dried
+bodies of water have similar characteristics as sites with minerals.
+
 \subsection{Regression}
 
 % Took the best B.C. model architecture and trained it on the regression problem
 
 % Present results of regression model training.
 
+% old
+For regression, the highest observed improvement over baseline was 8.2\%, with a baseline MAE of 0.127 and a trained MAE of 0.117.
+
 \section{Discussion}
 
 % Hit a cieling at 73% --> maybe we are learning all of the available information
 % Discuss that false positives are suspect
+
+% old
+The experiments produced the best F1 score of 75\% for binary classification, achieved using model 4,
+with a recall of 69\% and precision of 82\%. These results suggest that the model is accurate in
+identifying positive cases with high precision while keeping false positives relatively low. Model 4
+with a medium convolutional layer size and small dense layer size was a good model with good performance.
+A confusion matrix was graphed to visualize the performance of the binary classification models by
+comparing the actual and predicted class labels. Where model 4 was again the better model, and model 6
+with medium convolutional layer size, and large dense layer size performed the poorest. This is again
+reflected in the graph of the F1 scores, Recall, and Precision scores of all the models.
+A Receiver Operating Characteristic (ROC) curve was plotted for more information about the model's performance.
+However, it was only plotted for the binary classifiers at a single threshold, therefore it is not a
+curve but single points. The ROC plot was created by plotting the true positive rate (TPR) against the
+false positive rate (FPR) at various threshold settings. This shows that the models were indeed good classifiers, and had a high true positive rate of around 0.8 with a lower false positive rate of around 0.4.
 
 \subsection{Limitations}
 
@@ -563,8 +657,46 @@ better performance even on our downsampled dataset.
 %   order to save inupt neurons
 % Use automated search for architectures and hyperparameters
 
+To improve the models further, an improvement would be introducing partitioning instead of
+downsampling source images, breaking them into many examples preserving the original pixels,
+and computing new bounding boxes and labels for each. However, automating this partitioning may be nontrivial since each
+Landsat image is superimposed on a black enclosing square, at inconsistent rotations relative
+to the square. Indeed, if a technique was developed to automatically remove the black bounding box
+of each image, we might see a performance improvement from this alone.
+
+And since we were able to demonstrate significant learning in the naive binary
+classificatiaon case, we could focus more on the regression problem, since we believe the
+regression problem has greater potential for practical applications. In particular, we would
+attempt to achieve low error on the set of images each containing at least one
+known mineral deposit, then use the trained model to predict the mineral richness of images
+having no known deposits, in order to "prospect" for undiscovered deposits.
+
+Since we were constrained by the amount of computing power
+we could apply to the problem, we could purchase more compute, or try alternate problem formulations.
+Training times were too long to attempt many approaches, and downsampling was required to avoid memory exhaustion; however,
+progress could be made by exploring ensemble or boosting techniques and having access to more GPUs and better hardware.
+
+Another promising direction may be to create alternate labels indicating the presence
+or richness of particular mineral types in each image, since the mineral deposits
+dataset specifies the mineral types present at each deposit. Such experiments
+could investigate whether our methods are better suited to the detection of
+particular mineral types. We might also manually inspect our dataset and remove examples containing
+open mines visible from space, to ensure that our models are not learning
+to simply detect mines; note however that this would require a significant time investment.
+
+Finally, obtaining higher-quality labeling data would be the next step for this project as long
+as the computing power could keep up. There are some ambiguities in the minerals dataset,
+and it's unclear how exhaustive it is. Therefore, obtaining more comprehensive labeling
+data would improve the accuracy of the models. For example, we might seek out other datasets
+similar to the mineral deposits dataset, and combine them.
+
 \section{Conclusion}
 
+In conclusion, the experiments involved testing various model architectures and hyperparameters
+to maximize accuracy for binary classification and minimize error for regression. It was observed
+that shallow and wide networks were better for binary classification, while deep and narrow networks were more effective for
+regression. Overall, the results suggest that the model was already learning almost all available
+information and that better preprocessing and more compute could expose more information to the model.
 
 % New
 % -----------------------------------------------------------------------------
@@ -610,6 +742,8 @@ better performance even on our downsampled dataset.
 [5] https://www.esri.com/about/newsroom/arcwatch/mineral-exploration-in-the-hyperspectral-zone/
 
 [6] https://arxiv.org/pdf/2103.07678.pdf
+
+[7] https://arxiv.org/abs/1412.6980
 
 % Old:: 
 
